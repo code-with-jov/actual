@@ -3,7 +3,8 @@ export type FeatureFlag =
   | 'goalTemplatesUIEnabled'
   | 'actionTemplating'
   | 'pluggyAiBankSync'
-  | 'currency';
+  | 'currency'
+  | 'payPeriodBudgeting';
 
 /**
  * Cross-device preferences. These sync across devices when they are changed.
@@ -39,7 +40,9 @@ export type SyncedPrefs = Partial<
     | `ofx-fallback-missing-payee-${string}`
     | `flip-amount-${string}-${'csv' | 'qif'}`
     | `flags.${FeatureFlag}`
-    | `learn-categories`,
+    | `learn-categories`
+    | 'payPeriodBudgetingConfig'
+    | 'payPeriodBudgetingEnabled',
     string
   >
 >;
@@ -123,3 +126,20 @@ export type GlobalPrefsJson = Partial<{
 }>;
 
 export type AuthMethods = 'password' | 'openid';
+
+// Pay Period Budgeting Types
+export type PayPeriodFrequency = 'weekly' | 'bi-weekly' | 'semi-monthly' | 'monthly' | 'custom';
+
+export interface PayPeriodConfig {
+  id: string;
+  frequency: PayPeriodFrequency;
+  startDate: string; // ISO date string
+  amount: number;
+  source: string; // e.g., "Job 1", "Freelance", etc.
+  isActive: boolean;
+}
+
+export interface PayPeriodBudgetingConfig {
+  enabled: boolean;
+  payPeriods: PayPeriodConfig[];
+}
