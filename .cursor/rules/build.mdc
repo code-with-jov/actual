@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Remember you are in Powershell. Always use `bash -c ""` linux commands.
+
+When I ask you to build, run `bash -c yarn build:browser` followed by `bash -c yarn build:server`. Then go ahead and `bash -c yarn start:server`.

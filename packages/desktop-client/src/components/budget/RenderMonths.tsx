@@ -28,7 +28,13 @@ export function RenderMonths({
   args,
   style,
 }: RenderMonthsProps) {
-  const { months } = useContext(MonthsContext);
+  const context = useContext(MonthsContext);
+  
+  if (!context || !context.months) {
+    return null;
+  }
+  
+  const { months } = context;
 
   return months.map((month, index) => {
     const editing = editingMonth === month;

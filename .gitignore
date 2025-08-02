@@ -9,6 +9,8 @@ export-2020-01-10.csv
 
 # Secrets
 .secret-tokens
+packages/sync-server/config.json
+packages/sync-server/certs/*
 
 # MacOS
 .DS_Store
