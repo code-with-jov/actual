@@ -24,7 +24,10 @@ type MonthsContextProps = {
   type: string;
 };
 
-export const MonthsContext = createContext<MonthsContextProps>(null);
+export const MonthsContext = createContext<MonthsContextProps>({
+  months: [],
+  type: '',
+});
 
 type MonthsProviderProps = {
   startMonth: string | undefined;

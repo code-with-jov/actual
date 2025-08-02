@@ -1,0 +1,6 @@
+{
+    "https": {
+        "key": "./certs/desktop-bo60aaf.tail869fd3.ts.net.key",
+        "cert": "./certs/desktop-bo60aaf.tail869fd3.ts.net.crt"
+    }
+}

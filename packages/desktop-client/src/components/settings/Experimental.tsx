@@ -111,6 +111,12 @@ export function ExperimentalFeatures() {
             >
               <Trans>Currency support</Trans>
             </FeatureToggle>
+            <FeatureToggle
+              flag="payPeriodBudgeting"
+              feedbackLink="https://github.com/actualbudget/actual/issues/new"
+            >
+              <Trans>Pay Period Budgeting</Trans>
+            </FeatureToggle>
           </View>
         ) : (
           <Link

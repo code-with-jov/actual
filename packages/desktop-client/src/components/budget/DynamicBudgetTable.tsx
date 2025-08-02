@@ -10,8 +10,12 @@ import * as monthUtils from 'loot-core/shared/months';
 import { useBudgetMonthCount } from './BudgetMonthCountContext';
 import { BudgetPageHeader } from './BudgetPageHeader';
 import { BudgetTable } from './BudgetTable';
+import { PayPeriodPageHeader } from './PayPeriodPageHeader';
+import { PayPeriodBudgetTable } from './PayPeriodBudgetTable';
 
 import { useGlobalPref } from '@desktop-client/hooks/useGlobalPref';
+import { useFeatureFlag } from '@desktop-client/hooks/useFeatureFlag';
+import { usePayPeriodCalculations } from '@desktop-client/hooks/usePayPeriodCalculations';
 
 function getNumPossibleMonths(width: number, categoryWidth: number) {
   const estimatedTableWidth = width - categoryWidth;
@@ -50,6 +54,12 @@ const DynamicBudgetTableInner = ({
   const { setDisplayMax } = useBudgetMonthCount();
   const [categoryExpandedStatePref] = useGlobalPref('categoryExpandedState');
   const categoryExpandedState = categoryExpandedStatePref ?? 0;
+  const isPayPeriodEnabled = useFeatureFlag('payPeriodBudgeting');
+  const calculations = usePayPeriodCalculations();
+  
+  // If pay periods are enabled but no periods are configured, fall back to monthly view
+  const hasPayPeriods = calculations.currentPeriod || calculations.nextPeriod || calculations.upcomingPeriods.length > 0;
+  const shouldShowPayPeriods = isPayPeriodEnabled && hasPayPeriods;
 
   const numPossible = getNumPossibleMonths(
     width,
@@ -128,23 +138,62 @@ const DynamicBudgetTableInner = ({
         height,
         alignItems: 'center',
         opacity: width <= 0 || height <= 0 ? 0 : 1,
+        position: 'relative',
       }}
     >
       <View style={{ width: '100%', maxWidth }}>
-        <BudgetPageHeader
-          startMonth={prewarmStartMonth}
-          numMonths={numMonths}
-          monthBounds={monthBounds}
-          onMonthSelect={_onMonthSelect}
-        />
-        <BudgetTable
-          type={type}
-          prewarmStartMonth={prewarmStartMonth}
-          startMonth={startMonth}
-          numMonths={numMonths}
-          monthBounds={monthBounds}
-          {...props}
-        />
+        {shouldShowPayPeriods ? (
+          <PayPeriodPageHeader
+            startPeriod={calculations.currentPeriod || calculations.nextPeriod || calculations.upcomingPeriods[0]}
+            numPeriods={numMonths}
+            onPeriodSelect={(period) => {
+              // For now, we'll just log the period selection
+              console.log('Selected period:', period);
+            }}
+          />
+        ) : (
+          <BudgetPageHeader
+            startMonth={prewarmStartMonth}
+            numMonths={numMonths}
+            monthBounds={monthBounds}
+            onMonthSelect={_onMonthSelect}
+          />
+        )}
+        {shouldShowPayPeriods ? (
+          <PayPeriodBudgetTable
+            type={type}
+            startPeriod={calculations.currentPeriod || calculations.nextPeriod || calculations.upcomingPeriods[0]}
+            numPeriods={numMonths}
+            dataComponents={props.dataComponents}
+            onSaveCategory={props.onSaveCategory}
+            onDeleteCategory={props.onDeleteCategory}
+            onSaveGroup={props.onSaveGroup}
+            onDeleteGroup={props.onDeleteGroup}
+            onApplyBudgetTemplatesInGroup={props.onApplyBudgetTemplatesInGroup}
+            onReorderCategory={props.onReorderCategory}
+            onReorderGroup={props.onReorderGroup}
+            onShowActivity={(id, period) => props.onShowActivity(id, period?.startDate)}
+            onBudgetAction={(period, type, args) => props.onBudgetAction(period.startDate, type, args)}
+          />
+        ) : (
+          <BudgetTable
+            type={type}
+            prewarmStartMonth={prewarmStartMonth}
+            startMonth={startMonth}
+            numMonths={numMonths}
+            monthBounds={monthBounds}
+            dataComponents={props.dataComponents}
+            onSaveCategory={props.onSaveCategory}
+            onDeleteCategory={props.onDeleteCategory}
+            onSaveGroup={props.onSaveGroup}
+            onDeleteGroup={props.onDeleteGroup}
+            onApplyBudgetTemplatesInGroup={props.onApplyBudgetTemplatesInGroup}
+            onReorderCategory={props.onReorderCategory}
+            onReorderGroup={props.onReorderGroup}
+            onShowActivity={props.onShowActivity}
+            onBudgetAction={props.onBudgetAction}
+          />
+        )}
       </View>
     </View>
   );
