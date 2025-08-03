@@ -1,5 +1,5 @@
 // @ts-strict-ignore
-import React, { useEffect, type ComponentProps } from 'react';
+import React, { useEffect, useState, type ComponentProps } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import AutoSizer from 'react-virtualized-auto-sizer';
 
@@ -60,6 +60,17 @@ const DynamicBudgetTableInner = ({
   // If pay periods are enabled but no periods are configured, fall back to monthly view
   const hasPayPeriods = calculations.currentPeriod || calculations.nextPeriod || calculations.upcomingPeriods.length > 0;
   const shouldShowPayPeriods = isPayPeriodEnabled && hasPayPeriods;
+
+  // State for tracking the selected pay period
+  const [selectedPeriod, setSelectedPeriod] = useState(() => {
+    // Default to current period, then next period, then first upcoming period
+    return calculations.currentPeriod || calculations.nextPeriod || calculations.upcomingPeriods[0];
+  });
+
+  // Handle period selection
+  const handlePeriodSelect = (period) => {
+    setSelectedPeriod(period);
+  };
 
   const numPossible = getNumPossibleMonths(
     width,
@@ -144,12 +155,9 @@ const DynamicBudgetTableInner = ({
       <View style={{ width: '100%', maxWidth }}>
         {shouldShowPayPeriods ? (
           <PayPeriodPageHeader
-            startPeriod={calculations.currentPeriod || calculations.nextPeriod || calculations.upcomingPeriods[0]}
+            startPeriod={selectedPeriod}
             numPeriods={numMonths}
-            onPeriodSelect={(period) => {
-              // For now, we'll just log the period selection
-              console.log('Selected period:', period);
-            }}
+            onPeriodSelect={handlePeriodSelect}
           />
         ) : (
           <BudgetPageHeader
@@ -162,7 +170,7 @@ const DynamicBudgetTableInner = ({
         {shouldShowPayPeriods ? (
           <PayPeriodBudgetTable
             type={type}
-            startPeriod={calculations.currentPeriod || calculations.nextPeriod || calculations.upcomingPeriods[0]}
+            startPeriod={selectedPeriod}
             numPeriods={numMonths}
             dataComponents={props.dataComponents}
             onSaveCategory={props.onSaveCategory}

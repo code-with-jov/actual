@@ -262,11 +262,17 @@ export function PayPeriodBudgetTable(props: PayPeriodBudgetTableProps) {
         </View>
       </View>
 
+      <BudgetTotals
+        MonthComponent={dataComponents.BudgetTotalsComponent}
+        toggleHiddenCategories={toggleHiddenCategories}
+        expandAllCategories={expandAllCategories}
+        collapseAllCategories={collapseAllCategories}
+      />
       <View
         style={{
-          flex: 1,
           overflowY: 'scroll',
           overflowAnchor: 'none',
+          flex: 1,
           paddingLeft: 5,
           paddingRight: 5,
         }}
