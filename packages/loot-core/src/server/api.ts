@@ -967,6 +967,14 @@ handlers['api/get-server-version'] = async function () {
   return handlers['get-server-version']();
 };
 
+handlers['get-pay-period-config'] = async function () {
+  checkFileOpen();
+  return await db.first<db.DbPayPeriodConfig>(
+    'SELECT * FROM pay_period_config WHERE id = ?',
+    ['default'],
+  );
+};
+
 export function installAPI(serverHandlers: ServerHandlers) {
   const merged = Object.assign({}, serverHandlers, handlers);
   handlers = merged as Handlers;

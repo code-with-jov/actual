@@ -7,6 +7,8 @@ import { aqlQuery } from '../aql';
 import * as db from '../db';
 import * as sheet from '../sheet';
 import { resolveName } from '../spreadsheet/util';
+import { payPeriodConfigService } from '../../shared/pay-period-config-service';
+import { loadPayPeriodConfigFromDatabase } from '../../shared/pay-periods';
 
 import * as budgetActions from './actions';
 import * as envelopeBudget from './envelope';
@@ -39,20 +41,36 @@ export function getBudgetRange(start: string, end: string) {
 }
 
 export function createCategory(cat, sheetName, prevSheetName, start, end) {
+  console.log(
+    `[CREATE_CATEGORY] Creating category ${cat.id} for sheet ${sheetName} with date range ${start} to ${end}`,
+  );
+
   sheet.get().createDynamic(sheetName, 'sum-amount-' + cat.id, {
     initialValue: 0,
     run: () => {
       // Making this sync is faster!
-      const rows = db.runQuery<{ amount: number }>(
-        `SELECT SUM(amount) as amount FROM v_transactions_internal_alive t
-           LEFT JOIN accounts a ON a.id = t.account
-         WHERE t.date >= ${start} AND t.date <= ${end}
-           AND category = '${cat.id}' AND a.offbudget = 0`,
-        [],
-        true,
+      console.log(
+        `[CREATE_CATEGORY] Running SQL query for category ${cat.id} with date range ${start} to ${end}`,
       );
+      console.log(`[CREATE_CATEGORY] Sheet name: ${sheetName}, Category: ${cat.id}`);
+      console.log(`[CREATE_CATEGORY] Date range: ${start} to ${end} (${Math.floor(start/10000)}-${Math.floor((start%10000)/100)}-${start%100} to ${Math.floor(end/10000)}-${Math.floor((end%10000)/100)}-${end%100})`);
+      
+      const query = `SELECT SUM(amount) as amount FROM v_transactions_internal_alive t
+           LEFT JOIN accounts a ON a.id = t.account
+         WHERE t.date >= '${start}' AND t.date <= '${end}'
+           AND category = '${cat.id}' AND a.offbudget = 0`;
+      
+      console.log(`[CREATE_CATEGORY] SQL Query: ${query}`);
+      
+      const rows = db.runQuery<{ amount: number }>(query, [], true);
       const row = rows[0];
       const amount = row ? row.amount : 0;
+      
+      console.log(
+        `[CREATE_CATEGORY] Query result for category ${cat.id}: ${amount} (rows: ${rows.length})`,
+      );
+      console.log(`[CREATE_CATEGORY] Raw query result:`, rows);
+      
       return amount || 0;
     },
   });
@@ -231,6 +249,15 @@ export async function createBudget(months) {
   );
   const categories = groups.flatMap(group => group.categories);
 
+  // Load pay period config from database using centralized function
+  const config = await loadPayPeriodConfigFromDatabase();
+
+  let payPeriodConfigEnabled = false;
+  if (config) {
+    monthUtils.setPayPeriodConfig(config);
+    payPeriodConfigEnabled = config.enabled;
+  }
+
   sheet.startTransaction();
   const meta = sheet.get().meta();
   meta.createdMonths = meta.createdMonths || new Set();
@@ -243,10 +270,14 @@ export async function createBudget(months) {
 
   months.forEach(month => {
     if (!meta.createdMonths.has(month)) {
+      console.log(`[CREATE_BUDGET] Creating budget for month: ${month}`);
       const prevMonth = monthUtils.prevMonth(month);
       const { start, end } = monthUtils.bounds(month);
       const sheetName = monthUtils.sheetForMonth(month);
       const prevSheetName = monthUtils.sheetForMonth(prevMonth);
+      console.log(
+        `[CREATE_BUDGET] Sheet name: ${sheetName}, prevSheetName: ${prevSheetName}`,
+      );
 
       categories.forEach(cat => {
         createCategory(cat, sheetName, prevSheetName, start, end);
@@ -284,6 +315,15 @@ export async function createBudget(months) {
 }
 
 export async function createAllBudgets() {
+  // Load pay period config first so currentMonth() can use it
+  const config = await loadPayPeriodConfigFromDatabase();
+
+  let shouldCreatePayPeriodBudgets = false;
+  if (config) {
+    monthUtils.setPayPeriodConfig(config);
+    shouldCreatePayPeriodBudgets = config.enabled;
+  }
+
   const earliestTransaction = await db.first<db.DbTransaction>(
     'SELECT * FROM transactions WHERE isChild=0 AND date IS NOT NULL ORDER BY date ASC LIMIT 1',
   );
@@ -299,12 +339,24 @@ export async function createAllBudgets() {
     currentMonth,
   );
 
+  // If pay periods are enabled, create budgets for pay periods instead of calendar months
+  let monthsToCreate = range;
+  if (shouldCreatePayPeriodBudgets) {
+    // Generate pay period range for the current year using config service
+    const currentYear = parseInt(currentMonth.slice(0, 4));
+    const effectiveConfig = payPeriodConfigService.getEffectiveConfig();
+    if (effectiveConfig) {
+      const payPeriods = monthUtils.generatePayPeriods(currentYear, effectiveConfig);
+      monthsToCreate = payPeriods.map(p => p.monthId);
+    }
+  }
+
   const meta = sheet.get().meta();
   const createdMonths = meta.createdMonths || new Set();
-  const newMonths = range.filter(m => !createdMonths.has(m));
+  const newMonths = monthsToCreate.filter(m => !createdMonths.has(m));
 
   if (newMonths.length > 0) {
-    await createBudget(range);
+    await createBudget(monthsToCreate);
   }
 
   return { start, end };

@@ -5,8 +5,29 @@ import memoizeOne from 'memoize-one';
 
 import { type SyncedPrefs } from '../types/prefs';
 
-import * as Platform from './platform';
 import { parseDate as sharedParseDate } from './date-utils';
+
+// ----------------------------------------------
+// Extended months: Pay Period Support (MM 13-99)
+// ----------------------------------------------
+import {
+  type PayPeriodConfig,
+  getPayPeriodConfig,
+  setPayPeriodConfig,
+  isPayPeriod as _isPayPeriod,
+  getPayPeriodStartDate,
+  getPayPeriodEndDate,
+  getPayPeriodLabel,
+  generatePayPeriods,
+  nextPayPeriod,
+  prevPayPeriod,
+  addPayPeriods,
+  getCurrentPayPeriod,
+  getPayPeriodFromDate,
+  generatePayPeriodRange,
+} from './pay-periods';
+import { payPeriodConfigService } from './pay-period-config-service';
+import * as Platform from './platform';
 
 type DateLike = string | Date;
 type Day = 0 | 1 | 2 | 3 | 4 | 5 | 6;
@@ -58,13 +79,12 @@ export function currentMonth(): string {
   if (global.IS_TESTING || Platform.isPlaywright) {
     return global.currentMonth || '2017-01';
   }
-  
+
   const config = getPayPeriodConfig();
   if (config?.enabled) {
-    console.log('getCurrentPayPeriod', new Date(), config);
     return getCurrentPayPeriod(new Date(), config);
   }
-  
+
   return d.format(new Date(), 'yyyy-MM');
 }
 
@@ -220,10 +240,25 @@ export function isCurrentDay(day: DateLike): boolean {
 // TODO: This doesn't really fit in this module anymore, should
 // probably live elsewhere
 export function bounds(month: DateLike): { start: number; end: number } {
-  return {
-    start: parseInt(d.format(d.startOfMonth(_parse(month)), 'yyyyMMdd')),
-    end: parseInt(d.format(d.endOfMonth(_parse(month)), 'yyyyMMdd')),
-  };
+  const monthStr = typeof month === 'string' ? month : d.format(_parse(month), 'yyyy-MM');
+  
+  
+  // Handle pay periods - only if it's actually a pay period month
+  if (isPayPeriod(monthStr)) {
+    const config = getPayPeriodConfig();
+    if (config?.enabled) {
+      const { startDate, endDate } = resolveMonthRange(monthStr, config);
+      const start = parseInt(d.format(startDate, 'yyyyMMdd'));
+      const end = parseInt(d.format(endDate, 'yyyyMMdd'));
+      return { start, end };
+    } else {
+    }
+  }
+  
+  // Handle calendar months - always use calendar month logic for calendar months
+  const start = parseInt(d.format(d.startOfMonth(_parse(month)), 'yyyyMMdd'));
+  const end = parseInt(d.format(d.endOfMonth(_parse(month)), 'yyyyMMdd'));
+  return { start, end };
 }
 
 export function _yearRange(
@@ -287,8 +322,8 @@ export function _range(
   const startStr = typeof start === 'string' ? start : d.format(_parse(start), 'yyyy-MM');
   const endStr = typeof end === 'string' ? end : d.format(_parse(end), 'yyyy-MM');
   
-  // Check if we're dealing with pay periods
-  if (isPayPeriod(startStr) || isPayPeriod(endStr)) {
+  // Check if we're dealing with pay periods - only use pay period logic if BOTH are pay periods
+  if (isPayPeriod(startStr) && isPayPeriod(endStr)) {
     const config = getPayPeriodConfig();
     if (config?.enabled) {
       return generatePayPeriodRange(startStr, endStr, config, inclusive);
@@ -479,26 +514,6 @@ export const getShortYearRegex = memoizeOne((format: string) => {
   return new RegExp('^' + regex + '$');
 });
 
-// ----------------------------------------------
-// Extended months: Pay Period Support (MM 13-99)
-// ----------------------------------------------
-import {
-  type PayPeriodConfig,
-  getPayPeriodConfig,
-  setPayPeriodConfig,
-  isPayPeriod as _isPayPeriod,
-  getPayPeriodStartDate,
-  getPayPeriodEndDate,
-  getPayPeriodLabel,
-  generatePayPeriods,
-  nextPayPeriod,
-  prevPayPeriod,
-  addPayPeriods,
-  getCurrentPayPeriod,
-  getPayPeriodFromDate,
-  generatePayPeriodRange,
-} from './pay-periods';
-
 function getNumericMonthValue(monthId: string): number {
   // Expect format 'YYYY-MM'
   if (typeof monthId !== 'string' || monthId.length < 7 || monthId[4] !== '-') {
@@ -511,10 +526,6 @@ function getNumericMonthValue(monthId: string): number {
   return value;
 }
 
-export function isCalendarMonth(monthId: string): boolean {
-  const mm = getNumericMonthValue(monthId);
-  return mm >= 1 && mm <= 12;
-}
 
 export function isPayPeriod(monthId: string): boolean {
   return _isPayPeriod(monthId);
@@ -538,54 +549,67 @@ export function getMonthStartDate(
   monthId: string,
   config?: PayPeriodConfig,
 ): Date {
-  if (isCalendarMonth(monthId)) return getCalendarMonthStartDate(monthId);
-  if (!config || !config.enabled) {
-    throw new Error("Pay period requested for '" + monthId + "' but config is missing/disabled.");
+  if (isPayPeriod(monthId)) {
+    if (!config || !config.enabled) {
+      throw new Error("Pay period requested for '" + monthId + "' but config is missing/disabled.");
+    }
+    return getPayPeriodStartDate(monthId, config);
   }
-  return getPayPeriodStartDate(monthId, config);
+  return getCalendarMonthStartDate(monthId);
 }
 
 export function getMonthEndDate(
   monthId: string,
   config?: PayPeriodConfig,
 ): Date {
-  if (isCalendarMonth(monthId)) return getCalendarMonthEndDate(monthId);
-  if (!config || !config.enabled) {
-    throw new Error("Pay period requested for '" + monthId + "' but config is missing/disabled.");
+  if (isPayPeriod(monthId)) {
+    if (!config || !config.enabled) {
+      throw new Error("Pay period requested for '" + monthId + "' but config is missing/disabled.");
+    }
+    return getPayPeriodEndDate(monthId, config);
   }
-  return getPayPeriodEndDate(monthId, config);
+  return getCalendarMonthEndDate(monthId);
 }
 
 export function getMonthLabel(
   monthId: string,
   config?: PayPeriodConfig,
 ): string {
-  if (isCalendarMonth(monthId)) return getCalendarMonthLabel(monthId);
-  if (!config || !config.enabled) {
-    const mm = getNumericMonthValue(monthId);
-    return 'Period ' + String(mm - 12);
+  if (isPayPeriod(monthId)) {
+    if (!config || !config.enabled) {
+      const mm = getNumericMonthValue(monthId);
+      return 'Period ' + String(mm - 12);
+    }
+    return getPayPeriodLabel(monthId, config);
   }
-  return getPayPeriodLabel(monthId, config);
+  return getCalendarMonthLabel(monthId);
 }
 
 export function resolveMonthRange(
   monthId: string,
   config?: PayPeriodConfig,
 ): { startDate: Date; endDate: Date; label: string } {
-  if (isCalendarMonth(monthId)) {
-    return {
-      startDate: getCalendarMonthStartDate(monthId),
-      endDate: getCalendarMonthEndDate(monthId),
-      label: getCalendarMonthLabel(monthId),
-    };
+  
+  if (isPayPeriod(monthId)) {
+    if (!config) {
+      console.error(`[RESOLVE_MONTH_RANGE] Pay period config missing for: ${monthId}`);
+      throw new Error('Pay period config is required for pay period ranges.');
+    }
+    
+    const startDate = getPayPeriodStartDate(monthId, config);
+    const endDate = getPayPeriodEndDate(monthId, config);
+    const label = getPayPeriodLabel(monthId, config);
+    
+    
+    return { startDate, endDate, label };
   }
-  if (!config) {
-    throw new Error('Pay period config is required for pay period ranges.');
-  }
-  const startDate = getPayPeriodStartDate(monthId, config);
-  const endDate = getPayPeriodEndDate(monthId, config);
-  const label = getPayPeriodLabel(monthId, config);
-  return { startDate, endDate, label };
+  
+  const result = {
+    startDate: getCalendarMonthStartDate(monthId),
+    endDate: getCalendarMonthEndDate(monthId),
+    label: getCalendarMonthLabel(monthId),
+  };
+  return result;
 }
 
 export { getPayPeriodConfig, setPayPeriodConfig, generatePayPeriods };

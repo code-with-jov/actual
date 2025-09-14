@@ -173,11 +173,35 @@ async function getBudgetBounds() {
 }
 
 async function envelopeBudgetMonth({ month }: { month: string }) {
+  console.log(
+    `[ENVELOPE_BUDGET_MONTH] Getting budget data for month: ${month}`,
+  );
+  
+  // Check if this is a pay period month
+  const isPayPeriodMonth = monthUtils.isPayPeriod(month);
+  console.log(`[ENVELOPE_BUDGET_MONTH] Is pay period month: ${isPayPeriodMonth}`);
+  
+  if (isPayPeriodMonth) {
+    const config = monthUtils.getPayPeriodConfig();
+    console.log(`[ENVELOPE_BUDGET_MONTH] Pay period config:`, config);
+    
+    if (config?.enabled) {
+      try {
+        const { startDate, endDate } = monthUtils.resolveMonthRange(month, config);
+        console.log(`[ENVELOPE_BUDGET_MONTH] Pay period date range: ${monthUtils.format(startDate, 'yyyy-MM-dd')} to ${monthUtils.format(endDate, 'yyyy-MM-dd')}`);
+      } catch (error) {
+        console.error(`[ENVELOPE_BUDGET_MONTH] Error resolving pay period range:`, error);
+      }
+    }
+  }
+  
   const groups = await db.getCategoriesGrouped();
   const sheetName = monthUtils.sheetForMonth(month);
+  console.log(`[ENVELOPE_BUDGET_MONTH] Sheet name: ${sheetName}`);
 
   function value(name: string) {
     const v = sheet.getCellValue(sheetName, name);
+    console.log(`[ENVELOPE_BUDGET_MONTH] Getting value for ${name}: ${v}`);
     return { value: v === '' ? 0 : v, name: resolveName(sheetName, name) };
   }
 

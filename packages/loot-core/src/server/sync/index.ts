@@ -24,6 +24,8 @@ import * as prefs from '../prefs';
 import { getServer } from '../server-config';
 import * as sheet from '../sheet';
 import * as undo from '../undo';
+import { payPeriodConfigService } from '../../shared/pay-period-config-service';
+import { setPayPeriodConfig, transformDbConfigToPayPeriodConfig } from '../../shared/pay-periods';
 
 import * as encoder from './encoder';
 import { rebuildMerkleHash } from './repair';
@@ -32,6 +34,71 @@ import { isError } from './utils';
 export { makeTestMessage } from './make-test-message';
 export { resetSync } from './reset';
 export { repairSync } from './repair';
+
+// Update pay period configuration in database when preferences change
+async function updatePayPeriodConfig(prefName: string, value: string) {
+  try {
+    // Get current config or create default
+    let config = await db.first<db.DbPayPeriodConfig>(
+      'SELECT * FROM pay_period_config WHERE id = ?',
+      ['default'],
+    );
+    
+    if (!config) {
+      // Create default config if it doesn't exist
+      await db.runQuery(
+        'INSERT INTO pay_period_config (id, enabled, pay_frequency, start_date) VALUES (?, ?, ?, ?)',
+        ['default', 0, 'monthly', '2025-01-01'],
+      );
+      config = {
+        id: 'default',
+        enabled: 0,
+        pay_frequency: 'monthly',
+        start_date: '2025-01-01',
+      };
+    }
+    
+    // Update the specific field
+    if (prefName === 'showPayPeriods') {
+      const enabled = value === 'true' ? 1 : 0;
+      await db.runQuery(
+        'UPDATE pay_period_config SET enabled = ? WHERE id = ?',
+        [enabled, 'default'],
+      );
+    } else if (prefName === 'payPeriodFrequency') {
+      await db.runQuery(
+        'UPDATE pay_period_config SET pay_frequency = ? WHERE id = ?',
+        [value, 'default'],
+      );
+    } else if (prefName === 'payPeriodStartDate') {
+      await db.runQuery(
+        'UPDATE pay_period_config SET start_date = ? WHERE id = ?',
+        [value, 'default'],
+      );
+    }
+
+    // Update the config service with the new values
+    const updatedConfig = await db.first<db.DbPayPeriodConfig>(
+      'SELECT * FROM pay_period_config WHERE id = ?',
+      ['default'],
+    );
+    
+    if (updatedConfig) {
+      const config = transformDbConfigToPayPeriodConfig(updatedConfig);
+      
+      // Update the centralized config service
+      payPeriodConfigService.setConfig(config);
+      
+      // Also update the legacy monthUtils for backward compatibility
+      setPayPeriodConfig(config);
+    } else {
+      // Clear config service if no config exists
+      payPeriodConfigService.setConfig(null);
+    }
+  } catch (error) {
+    console.error('Failed to update pay period config:', error);
+  }
+}
 
 const FULL_SYNC_DELAY = 1000;
 let SYNCING_MODE = 'enabled';
@@ -363,6 +430,11 @@ export const applyMessages = sequential(async (messages: Message[]) => {
       // Special treatment for some synced prefs
       if (dataset === 'preferences' && row === 'budgetType') {
         setBudgetType(value);
+      }
+      
+      // Handle pay period preferences by updating pay_period_config table
+      if (dataset === 'preferences' && (row === 'showPayPeriods' || row === 'payPeriodFrequency' || row === 'payPeriodStartDate')) {
+        updatePayPeriodConfig(row, String(value));
       }
     }
 

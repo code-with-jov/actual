@@ -2,6 +2,8 @@
 import * as d from 'date-fns';
 
 import { parseDate, dayFromDate } from './date-utils';
+import { payPeriodConfigService } from './pay-period-config-service';
+import * as db from '../server/db';
 
 export interface PayPeriodConfig {
   enabled: boolean;
@@ -11,15 +13,93 @@ export interface PayPeriodConfig {
   payDayOfMonth?: number; // 1-31 for monthly
 }
 
-// Pay period config will be loaded from database preferences
-let __payPeriodConfig: PayPeriodConfig | null = null;
-
+// Legacy functions for backward compatibility
 export function getPayPeriodConfig(): PayPeriodConfig | null {
-  return __payPeriodConfig;
+  return payPeriodConfigService.getConfig();
 }
 
 export function setPayPeriodConfig(config: PayPeriodConfig): void {
-  __payPeriodConfig = config;
+  payPeriodConfigService.setConfig(config);
+}
+
+// Helper function to transform database config to PayPeriodConfig
+export function transformDbConfigToPayPeriodConfig(dbConfig: db.DbPayPeriodConfig): PayPeriodConfig {
+  return {
+    enabled: dbConfig.enabled === 1,
+    payFrequency: dbConfig.pay_frequency as any,
+    startDate: dbConfig.start_date,
+    payDayOfWeek: dbConfig.pay_day_of_week || undefined,
+    payDayOfMonth: dbConfig.pay_day_of_month || undefined,
+  };
+}
+
+// Server-side config management functions
+export async function loadPayPeriodConfigFromDatabase(): Promise<PayPeriodConfig | null> {
+  try {
+    const payPeriodConfig = await db.first<db.DbPayPeriodConfig>(
+      'SELECT * FROM pay_period_config WHERE id = ?',
+      ['default'],
+    );
+    
+    if (payPeriodConfig) {
+      const config = transformDbConfigToPayPeriodConfig(payPeriodConfig);
+      payPeriodConfigService.setConfig(config);
+      return config;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Failed to load pay period config from database:', error);
+    // Return default config as fallback
+    const defaultConfig = payPeriodConfigService.getDefaultConfig();
+    payPeriodConfigService.setConfig(defaultConfig);
+    return defaultConfig;
+  }
+}
+
+export async function savePayPeriodConfigToDatabase(config: PayPeriodConfig): Promise<boolean> {
+  try {
+    // Check if config exists
+    const existing = await db.first<db.DbPayPeriodConfig>(
+      'SELECT * FROM pay_period_config WHERE id = ?',
+      ['default'],
+    );
+    
+    if (existing) {
+      // Update existing config
+      await db.runQuery(
+        'UPDATE pay_period_config SET enabled = ?, pay_frequency = ?, start_date = ?, pay_day_of_week = ?, pay_day_of_month = ? WHERE id = ?',
+        [
+          config.enabled ? 1 : 0,
+          config.payFrequency,
+          config.startDate,
+          config.payDayOfWeek || null,
+          config.payDayOfMonth || null,
+          'default'
+        ],
+      );
+    } else {
+      // Insert new config
+      await db.runQuery(
+        'INSERT INTO pay_period_config (id, enabled, pay_frequency, start_date, pay_day_of_week, pay_day_of_month) VALUES (?, ?, ?, ?, ?, ?)',
+        [
+          'default',
+          config.enabled ? 1 : 0,
+          config.payFrequency,
+          config.startDate,
+          config.payDayOfWeek || null,
+          config.payDayOfMonth || null,
+        ],
+      );
+    }
+    
+    // Update the config service
+    payPeriodConfigService.setConfig(config);
+    return true;
+  } catch (error) {
+    console.error('Failed to save pay period config to database:', error);
+    return false;
+  }
 }
 
 export function isPayPeriod(monthId: string): boolean {
@@ -73,16 +153,20 @@ function computePayPeriodByIndex(
   periodIndex: number,
   config: PayPeriodConfig,
 ): { startDate: Date; endDate: Date; label: string } {
+  
   validatePayPeriodConfig(config);
   if (!config || !config.enabled) {
+    console.error(`[COMPUTE_PAY_PERIOD] Pay period config disabled or missing`);
     throw new Error('Pay period config disabled or missing for pay period calculations.');
   }
   if (!Number.isInteger(periodIndex) || periodIndex < 1) {
+    console.error(`[COMPUTE_PAY_PERIOD] Invalid period index: ${periodIndex}`);
     throw new Error("Invalid periodIndex '" + String(periodIndex) + "'.");
   }
 
   const baseStart = parseDate(config.startDate);
   const freq = config.payFrequency;
+  
 
   let startDate = baseStart;
   let endDate = baseStart;
@@ -118,8 +202,10 @@ function computePayPeriodByIndex(
     }
     label = 'Pay Period ' + String(periodIndex);
   } else {
+    console.error(`[COMPUTE_PAY_PERIOD] Unsupported frequency: ${freq}`);
     throw new Error("Unsupported payFrequency '" + String(freq) + "'.");
   }
+
 
   return { startDate, endDate, label };
 }
