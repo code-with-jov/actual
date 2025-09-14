@@ -17,7 +17,11 @@ describe('pay period integration', () => {
   });
 
   afterEach(() => {
-    setPayPeriodConfig({ enabled: false, payFrequency: 'biweekly', startDate: '2024-01-05' });
+    setPayPeriodConfig({
+      enabled: false,
+      payFrequency: 'biweekly',
+      startDate: '2024-01-05',
+    });
   });
 
   test('isPayPeriod correctly identifies pay period months', () => {
@@ -27,11 +31,13 @@ describe('pay period integration', () => {
     expect(monthUtils.isPayPeriod('2024-99')).toBe(true);
   });
 
-  test('isCalendarMonth correctly identifies calendar months', () => {
-    expect(monthUtils.isCalendarMonth('2024-01')).toBe(true);
-    expect(monthUtils.isCalendarMonth('2024-12')).toBe(true);
-    expect(monthUtils.isCalendarMonth('2024-13')).toBe(false);
-    expect(monthUtils.isCalendarMonth('2024-99')).toBe(false);
+  test('isPayPeriod correctly identifies pay periods vs calendar months', () => {
+    // Calendar months should not be pay periods
+    expect(monthUtils.isPayPeriod('2024-01')).toBe(false);
+    expect(monthUtils.isPayPeriod('2024-12')).toBe(false);
+    // Pay periods should be pay periods
+    expect(monthUtils.isPayPeriod('2024-13')).toBe(true);
+    expect(monthUtils.isPayPeriod('2024-99')).toBe(true);
   });
 
   test('addMonths works with pay periods', () => {
@@ -51,7 +57,7 @@ describe('pay period integration', () => {
   test('getMonthLabel returns appropriate labels', () => {
     // Calendar month
     expect(monthUtils.getMonthLabel('2024-01')).toContain('January');
-    
+
     // Pay period
     const payPeriodLabel = monthUtils.getMonthLabel('2024-13', payPeriodConfig);
     expect(payPeriodLabel).toContain('Pay Period');

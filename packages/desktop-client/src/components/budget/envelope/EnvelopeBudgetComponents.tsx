@@ -393,7 +393,7 @@ export const ExpenseCategoryMonth = memo(function ExpenseCategoryMonth({
             type: 'financial',
             getValueStyle: makeAmountGrey,
             formatExpr: expr => {
-              return integerToCurrency(expr);
+              return integerToCurrency(expr ?? 0);
             },
             unformatExpr: expr => {
               return amountToInteger(evalArithmetic(expr, 0) ?? 0);

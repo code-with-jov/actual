@@ -132,11 +132,25 @@ export const MonthPicker = ({
           let displayLabel = monthUtils.format(month, 'MMM', locale);
           if (isPay && config?.enabled) {
             try {
-              const start = monthUtils.getMonthStartDate(month, config);
-              const end = monthUtils.getMonthEndDate(month, config);
-              const startLabel = monthUtils.format(start, 'MMM d', locale);
-              const endLabel = monthUtils.format(end, 'MMM d', locale);
-              displayLabel = `${startLabel} - ${endLabel}`;
+              // Use the start date's month and count of pay periods in that month
+              const { startDate } = monthUtils.resolveMonthRange(month, config);
+              const monthName = monthUtils.format(startDate, 'MMM', locale);
+              
+              // Count how many pay periods fall within this calendar month
+              const calendarMonth = monthUtils.format(startDate, 'yyyy-MM');
+              const year = parseInt(calendarMonth.slice(0, 4));
+              const allPeriods = monthUtils.generatePayPeriods(year, config);
+              
+              const periodsInMonth = allPeriods.filter(period => {
+                const periodStartDate = monthUtils.parseDate(period.startDate);
+                const periodMonth = monthUtils.format(periodStartDate, 'yyyy-MM');
+                return periodMonth === calendarMonth;
+              });
+              
+              const periodCount = periodsInMonth.length;
+              const periodIndex = periodsInMonth.findIndex(period => period.monthId === month) + 1;
+              
+              displayLabel = `${monthName} P${periodIndex}`;
             } catch {
               const pIndex = String(parseInt(month.slice(5, 7)) - 12);
               displayLabel = `P${pIndex}`;

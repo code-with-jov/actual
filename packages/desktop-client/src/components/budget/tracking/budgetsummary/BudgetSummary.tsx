@@ -57,7 +57,33 @@ export function BudgetSummary({ month }: BudgetSummaryProps) {
     ? SvgArrowButtonDown1
     : SvgArrowButtonUp1;
 
-  const displayMonth = monthUtils.format(month, 'MMMM ‘yy', locale);
+  const displayMonth = monthUtils.format(month, "MMMM 'yy", locale);
+
+  // Get the appropriate display text for the month
+  const getMonthDisplayText = () => {
+    const config = monthUtils.getPayPeriodConfig();
+    const isPay = monthUtils.isPayPeriod(month);
+    
+    if (isPay && config?.enabled) {
+      try {
+        const { startDate, endDate } = monthUtils.resolveMonthRange(
+          month,
+          config,
+        );
+        const startLabel = monthUtils.format(startDate, 'MMM d', locale);
+        const endLabel = monthUtils.format(endDate, 'MMM d', locale);
+        const periodIndex = parseInt(month.slice(5, 7)) - 12;
+        return `${startLabel} - ${endLabel} (P${periodIndex})`;
+      } catch {
+        // Fallback to short label if date range fails
+        const mm = parseInt(month.slice(5, 7));
+        return 'P' + String(mm - 12);
+      }
+    }
+    
+    // For calendar months, show the month name
+    return monthUtils.format(month, 'MMMM', locale);
+  };
 
   return (
     <View
@@ -126,7 +152,7 @@ export function BudgetSummary({ month }: BudgetSummaryProps) {
               textDecorationSkip: 'ink',
             })}
           >
-            {monthUtils.format(month, 'MMMM', locale)}
+            {getMonthDisplayText()}
           </div>
 
           <View

@@ -28,13 +28,15 @@ import {
   updateCategoryGroup,
 } from '@desktop-client/budget/budgetSlice';
 import { useCategories } from '@desktop-client/hooks/useCategories';
-import { useGlobalPref } from '@desktop-client/hooks/useGlobalPref';
 import { useFeatureFlag } from '@desktop-client/hooks/useFeatureFlag';
-import { useSyncedPref } from '@desktop-client/hooks/useSyncedPref';
+import { useGlobalPref } from '@desktop-client/hooks/useGlobalPref';
 import { useLocalPref } from '@desktop-client/hooks/useLocalPref';
 import { useNavigate } from '@desktop-client/hooks/useNavigate';
 import { SheetNameProvider } from '@desktop-client/hooks/useSheetName';
 import { useSpreadsheet } from '@desktop-client/hooks/useSpreadsheet';
+import { useSyncedPref } from '@desktop-client/hooks/useSyncedPref';
+import { usePayPeriodConfig } from '@desktop-client/hooks/usePayPeriodConfig';
+import { PayPeriodConfigProvider } from '@desktop-client/contexts/PayPeriodConfigContext';
 import { pushModal } from '@desktop-client/modals/modalsSlice';
 import { addNotification } from '@desktop-client/notifications/notificationsSlice';
 import { useDispatch } from '@desktop-client/redux';
@@ -67,7 +69,6 @@ type BudgetInnerProps = {
 
 function BudgetInner(props: BudgetInnerProps) {
   const { t } = useTranslation();
-  const currentMonth = monthUtils.currentMonth();
   const spreadsheet = useSpreadsheet();
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -75,6 +76,9 @@ function BudgetInner(props: BudgetInnerProps) {
     'budget.summaryCollapsed',
   );
   const [startMonthPref, setStartMonthPref] = useLocalPref('budget.startMonth');
+
+  // Memoize currentMonth to prevent unnecessary re-calculations
+  const currentMonth = useMemo(() => monthUtils.currentMonth(), []);
   const startMonth = startMonthPref || currentMonth;
   const [bounds, setBounds] = useState({
     start: startMonth,
@@ -82,9 +86,11 @@ function BudgetInner(props: BudgetInnerProps) {
   });
   const [budgetType = 'envelope'] = useSyncedPref('budgetType');
   const payPeriodFeatureFlagEnabled = useFeatureFlag('payPeriodsEnabled');
-  const [payPeriodFrequency] = useSyncedPref('payPeriodFrequency');
-  const [payPeriodStartDate] = useSyncedPref('payPeriodStartDate');
-  const [payPeriodViewEnabled] = useSyncedPref('showPayPeriods');
+  const { 
+    config: payPeriodConfig, 
+    isEnabled: payPeriodViewEnabled, 
+    isLoading: payPeriodConfigLoading 
+  } = usePayPeriodConfig();
   const [maxMonthsPref] = useGlobalPref('maxMonths');
   const maxMonths = maxMonthsPref || 1;
   const [initialized, setInitialized] = useState(false);
@@ -110,23 +116,6 @@ function BudgetInner(props: BudgetInnerProps) {
     run();
   }, []);
 
-  // Wire pay period config from synced prefs into month utils
-  useEffect(() => {
-    const enabled = payPeriodFeatureFlagEnabled && String(payPeriodViewEnabled) === 'true';
-    const frequency = (payPeriodFrequency as any) || 'monthly';
-    const start = (payPeriodStartDate as any) || `${new Date().getFullYear()}-01-01`;
-
-    monthUtils.setPayPeriodConfig({
-      enabled,
-      payFrequency: frequency,
-      startDate: start,
-    } as any);
-  }, [
-    payPeriodFeatureFlagEnabled,
-    payPeriodViewEnabled,
-    payPeriodFrequency,
-    payPeriodStartDate,
-  ]);
 
   useEffect(() => {
     send('get-budget-bounds').then(({ start, end }) => {
@@ -297,14 +286,61 @@ function BudgetInner(props: BudgetInnerProps) {
   const onShowActivity = (categoryId, month) => {
     const filterConditions = [
       { field: 'category', op: 'is', value: categoryId, type: 'id' },
-      {
-        field: 'date',
-        op: 'is',
-        value: month,
-        options: { month: true },
-        type: 'date',
-      },
     ];
+
+    // Handle date filtering based on month type
+    if (month) {
+      if (monthUtils.isPayPeriod(month)) {
+        // For pay periods, get the actual calendar months that this pay period covers
+        const config = monthUtils.getPayPeriodConfig();
+        if (config?.enabled) {
+          try {
+            const startDate = monthUtils.getMonthStartDate(month, config);
+            const endDate = monthUtils.getMonthEndDate(month, config);
+
+            // Convert to calendar months for the date range
+            const startMonth = monthUtils.format(startDate, 'yyyy-MM');
+            const endMonth = monthUtils.format(endDate, 'yyyy-MM');
+
+            if (startMonth === endMonth) {
+              // Single month
+              filterConditions.push({
+                field: 'date',
+                op: 'is',
+                value: startMonth,
+                type: 'date',
+              });
+            } else {
+              // Date range spanning multiple months
+              filterConditions.push({
+                field: 'date',
+                op: 'gte',
+                value: startMonth,
+                type: 'date',
+              });
+              filterConditions.push({
+                field: 'date',
+                op: 'lte',
+                value: endMonth,
+                type: 'date',
+              });
+            }
+          } catch (error) {
+            console.log('[BUDGET] Error getting pay period date range:', error);
+            // Fallback: don't add date filter for invalid pay periods
+          }
+        }
+      } else {
+        // Regular calendar month
+        filterConditions.push({
+          field: 'date',
+          op: 'is',
+          value: month,
+          type: 'date',
+        });
+      }
+    }
+
     navigate('/accounts', {
       state: {
         goBack: true,
@@ -353,19 +389,28 @@ function BudgetInner(props: BudgetInnerProps) {
 
   // Derive the month to render based on pay period view toggle
   const derivedStartMonth = useMemo(() => {
-    const config = monthUtils.getPayPeriodConfig();
-    const usePayPeriods = config?.enabled;
-
-    if (!usePayPeriods) return startMonth;
+    // Check if pay periods should be enabled based on feature flag and user preference
+    const shouldUsePayPeriods = payPeriodFeatureFlagEnabled && payPeriodViewEnabled;
+    
+    // If pay periods are not enabled, use calendar month
+    if (!shouldUsePayPeriods) {
+      return startMonth;
+    }
 
     // If already a pay period id, keep it
     const mm = parseInt(startMonth.slice(5, 7));
-    if (Number.isFinite(mm) && mm >= 13) return startMonth;
+    if (Number.isFinite(mm) && mm >= 13) {
+      return startMonth;
+    }
 
     // For calendar months, use the current year for pay periods
     const currentYear = parseInt(startMonth.slice(0, 4));
     return String(currentYear) + '-13';
-  }, [startMonth, payPeriodViewEnabled]);
+  }, [
+    startMonth,
+    payPeriodViewEnabled,
+    payPeriodFeatureFlagEnabled,
+  ]);
 
   if (!initialized || !categoryGroups) {
     return null;
@@ -467,18 +512,20 @@ export function Budget() {
   // that autosizer gives us is slightly wrong, causing scrollbars to
   // appear. We might not need it anymore?
   return (
-    <View
-      style={{
-        ...styles.page,
-        paddingLeft: 8,
-        paddingRight: 8,
-        overflow: 'hidden',
-      }}
-    >
-      <BudgetInner
-        trackingComponents={trackingComponents}
-        envelopeComponents={envelopeComponents}
-      />
-    </View>
+    <PayPeriodConfigProvider>
+      <View
+        style={{
+          ...styles.page,
+          paddingLeft: 8,
+          paddingRight: 8,
+          overflow: 'hidden',
+        }}
+      >
+        <BudgetInner
+          trackingComponents={trackingComponents}
+          envelopeComponents={envelopeComponents}
+        />
+      </View>
+    </PayPeriodConfigProvider>
   );
 }
