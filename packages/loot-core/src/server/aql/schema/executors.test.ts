@@ -1,5 +1,6 @@
 // @ts-strict-ignore
-import { setClock } from '@actual-app/crdt';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { setClock } = require('@actual-app/crdt');
 import fc from 'fast-check';
 
 import { aqlQuery } from '..';

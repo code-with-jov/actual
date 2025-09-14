@@ -1,5 +1,6 @@
 // @ts-strict-ignore
-import { serializeClock, getClock, Timestamp, merkle } from '@actual-app/crdt';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { serializeClock, getClock, Timestamp, merkle } = require('@actual-app/crdt');
 
 import * as db from '../db';
 

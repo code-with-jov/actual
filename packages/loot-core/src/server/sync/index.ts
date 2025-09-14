@@ -1,11 +1,12 @@
 // @ts-strict-ignore
-import {
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const {
   serializeClock,
   deserializeClock,
   getClock,
   Timestamp,
   merkle,
-} from '@actual-app/crdt';
+} = require('@actual-app/crdt');
 
 import { captureException } from '../../platform/exceptions';
 import * as asyncStorage from '../../platform/server/asyncStorage';

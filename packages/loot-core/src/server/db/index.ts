@@ -1,12 +1,13 @@
 // @ts-strict-ignore
-import {
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const {
   makeClock,
   setClock,
   serializeClock,
   deserializeClock,
   makeClientId,
   Timestamp,
-} from '@actual-app/crdt';
+} = require('@actual-app/crdt');
 import { Database } from '@jlongster/sql.js';
 import { LRUCache } from 'lru-cache';
 import { v4 as uuidv4 } from 'uuid';

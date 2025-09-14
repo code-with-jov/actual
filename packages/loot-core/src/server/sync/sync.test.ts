@@ -1,5 +1,6 @@
 // @ts-strict-ignore
-import { getClock, Timestamp } from '@actual-app/crdt';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { getClock, Timestamp } = require('@actual-app/crdt');
 
 import * as db from '../db';
 import * as prefs from '../prefs';

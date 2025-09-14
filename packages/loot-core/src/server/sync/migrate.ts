@@ -1,5 +1,6 @@
 // @ts-strict-ignore
-import { Timestamp } from '@actual-app/crdt';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { Timestamp } = require('@actual-app/crdt');
 
 import { Message, addSyncListener, applyMessages } from './index';
 

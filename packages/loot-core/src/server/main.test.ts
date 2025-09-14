@@ -1,5 +1,6 @@
 // @ts-strict-ignore
-import { getClock, deserializeClock } from '@actual-app/crdt';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { getClock, deserializeClock } = require('@actual-app/crdt');
 import { v4 as uuidv4 } from 'uuid';
 
 import { expectSnapshotWithDiffer } from '../mocks/util';

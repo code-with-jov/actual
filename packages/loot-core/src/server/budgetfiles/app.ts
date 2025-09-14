@@ -1,5 +1,6 @@
 // @ts-strict-ignore
-import * as CRDT from '@actual-app/crdt';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const CRDT = require('@actual-app/crdt');
 
 import { createTestBudget } from '../../mocks/budget';
 import { captureException, captureBreadcrumb } from '../../platform/exceptions';

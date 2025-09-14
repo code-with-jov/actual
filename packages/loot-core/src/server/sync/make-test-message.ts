@@ -1,5 +1,6 @@
 // @ts-strict-ignore
-import { SyncProtoBuf } from '@actual-app/crdt';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { SyncProtoBuf } = require('@actual-app/crdt');
 
 import * as encryption from '../encryption';
 

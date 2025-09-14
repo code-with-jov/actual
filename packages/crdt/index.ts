@@ -1,1 +1,16 @@
-export * from './src';
+export {
+  merkle,
+  getClock,
+  setClock,
+  makeClock,
+  makeClientId,
+  serializeClock,
+  deserializeClock,
+  Timestamp,
+  SyncRequest,
+  SyncResponse,
+  Message,
+  MessageEnvelope,
+  EncryptedData,
+  SyncProtoBuf,
+} from './src';

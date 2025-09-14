@@ -1,5 +1,6 @@
 // @ts-strict-ignore
-import { getClock } from '@actual-app/crdt';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { getClock } = require('@actual-app/crdt');
 
 import * as connection from '../platform/server/connection';
 import {

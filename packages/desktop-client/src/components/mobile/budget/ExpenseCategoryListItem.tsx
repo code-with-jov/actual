@@ -9,7 +9,7 @@ import { Text } from '@actual-app/components/text';
 import { theme } from '@actual-app/components/theme';
 import { View } from '@actual-app/components/view';
 
-import { type BudgetType } from 'loot-core/server/prefs';
+import { type BudgetType } from 'loot-core/types/prefs';
 import * as monthUtils from 'loot-core/shared/months';
 import { groupById, integerToCurrency } from 'loot-core/shared/util';
 import { type CategoryEntity } from 'loot-core/types/models';

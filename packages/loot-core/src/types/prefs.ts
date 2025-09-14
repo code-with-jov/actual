@@ -87,6 +87,10 @@ export type LocalPrefs = Partial<{
 export type Theme = 'light' | 'dark' | 'auto' | 'midnight' | 'development';
 export type DarkTheme = 'dark' | 'midnight';
 
+// Shared budget type definitions for use in both server and client code
+export const BUDGET_TYPES = ['tracking', 'envelope'] as const;
+export type BudgetType = (typeof BUDGET_TYPES)[number];
+
 // GlobalPrefs are the parsed global-store.json values
 export type GlobalPrefs = Partial<{
   floatingSidebar: boolean;

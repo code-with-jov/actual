@@ -1,5 +1,7 @@
 // @ts-strict-ignore
-import { Timestamp } from '@actual-app/crdt';
+// Use require to avoid static ESM import of a CJS module in browser builds
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { Timestamp } = require('@actual-app/crdt');
 
 import * as fs from '../platform/server/fs';
 import type { MetadataPrefs } from '../types/prefs';

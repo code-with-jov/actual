@@ -1,5 +1,6 @@
 // @ts-strict-ignore
-import { merkle, getClock, Timestamp } from '@actual-app/crdt';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { merkle, getClock, Timestamp } = require('@actual-app/crdt');
 import jsc, { type Arbitrary } from 'jsverify';
 
 import * as db from '../db';
