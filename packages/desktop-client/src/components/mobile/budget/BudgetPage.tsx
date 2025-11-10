@@ -323,10 +323,11 @@ export function BudgetPage() {
   }, [budgetType, setStartMonthPref, spreadsheet, startMonth]);
 
   const onCurrentMonth = useCallback(async () => {
-    await prewarmMonth(budgetType, spreadsheet, currMonth);
-    setStartMonthPref(currMonth);
+    const currentMonthOrPeriod = monthUtils.currentMonth();
+    await prewarmMonth(budgetType, spreadsheet, currentMonthOrPeriod);
+    setStartMonthPref(currentMonthOrPeriod);
     setInitialized(true);
-  }, [budgetType, setStartMonthPref, spreadsheet, currMonth]);
+  }, [budgetType, setStartMonthPref, spreadsheet]);
 
   // const onOpenMonthActionMenu = () => {
   //   const options = [

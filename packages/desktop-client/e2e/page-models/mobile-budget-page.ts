@@ -15,6 +15,7 @@ export class MobileBudgetPage {
   readonly previousMonthButton: Locator;
   readonly selectedBudgetMonthButton: Locator;
   readonly nextMonthButton: Locator;
+  readonly currentMonthButton: Locator;
   readonly budgetPageMenuButton: Locator;
   readonly budgetTableHeader: Locator;
   readonly toBudgetButton: Locator;
@@ -42,6 +43,9 @@ export class MobileBudgetPage {
     this.selectedBudgetMonthButton = this.heading.locator('button[data-month]');
     this.nextMonthButton = this.heading.getByRole('button', {
       name: 'Next month',
+    });
+    this.currentMonthButton = page.getByRole('button', {
+      name: 'Today',
     });
     this.budgetPageMenuButton = page.getByRole('button', {
       name: 'Budget page menu',
@@ -306,6 +310,19 @@ export class MobileBudgetPage {
       maxAttempts,
       errorMessage:
         'Failed to navigate to the next month after maximum attempts.',
+    });
+  }
+
+  async goToCurrentMonth({ maxAttempts = 3 }: { maxAttempts?: number } = {}) {
+    const currentMonth = await this.getSelectedMonth();
+
+    await this.currentMonthButton.click();
+
+    return await this.#waitForNewMonthToLoad({
+      currentMonth,
+      maxAttempts,
+      errorMessage:
+        'Failed to navigate to the current month after maximum attempts.',
     });
   }
 

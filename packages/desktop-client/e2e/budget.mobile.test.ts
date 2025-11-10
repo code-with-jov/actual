@@ -1,6 +1,10 @@
 import { type Page } from '@playwright/test';
 
 import * as monthUtils from 'loot-core/shared/months';
+import {
+  setPayPeriodConfig,
+  getCurrentPayPeriod,
+} from 'loot-core/shared/pay-periods';
 import { amountToCurrency, currencyToAmount } from 'loot-core/shared/util';
 
 import { expect, test } from './fixtures';
@@ -407,5 +411,48 @@ budgetTypes.forEach(budgetType => {
         await expect(page).toMatchThemeScreenshots();
       });
     }
+
+    test('current month button navigates to current pay period when pay periods are enabled', async () => {
+      // Enable pay periods
+      const payPeriodConfig = {
+        enabled: true,
+        payFrequency: 'biweekly' as const,
+        startDate: '2017-01-05', // Align with test data start date
+      };
+      setPayPeriodConfig(payPeriodConfig);
+
+      // Mock current month to ensure we know which pay period we're testing
+      // Using a date in January 2017 that falls in the test data range
+      global.currentMonth = getCurrentPayPeriod(
+        new Date('2017-01-15'),
+        payPeriodConfig,
+      );
+      const expectedCurrentPeriod = global.currentMonth;
+
+      const budgetPage = await navigation.goToBudgetPage();
+
+      // Navigate away from current pay period
+      await budgetPage.goToPreviousMonth();
+      await budgetPage.goToPreviousMonth();
+
+      // Verify we're not on the current pay period
+      const currentMonth = await budgetPage.getSelectedMonth();
+      expect(currentMonth).not.toBe(expectedCurrentPeriod);
+
+      // Click the current month button (calendar icon with "Today" aria-label)
+      await budgetPage.goToCurrentMonth();
+
+      // Verify we're now on the current pay period
+      const newMonth = await budgetPage.getSelectedMonth();
+      expect(newMonth).toBe(expectedCurrentPeriod);
+      expect(monthUtils.isPayPeriod(newMonth)).toBe(true);
+
+      // Clean up
+      setPayPeriodConfig({
+        enabled: false,
+        payFrequency: 'biweekly',
+        startDate: '2017-01-05',
+      });
+    });
   });
 });
