@@ -57,4 +57,42 @@ export class SettingsPage {
       await featureCheckbox.click();
     }
   }
+
+  async configurePayPeriod({
+    frequency,
+    startDate,
+  }: {
+    frequency: 'weekly' | 'biweekly' | 'semimonthly' | 'monthly';
+    startDate: string;
+  }) {
+    // Enable pay periods feature flag first
+    await this.enableExperimentalFeature('Pay periods');
+
+    // Set frequency
+    const frequencySelect = this.page.getByRole('combobox', {
+      name: /Frequency/i,
+    });
+    await frequencySelect.selectOption(frequency);
+
+    // Set start date
+    const startDateInput = this.page.getByRole('textbox', {
+      name: /Start Date/i,
+    });
+    await startDateInput.fill(startDate);
+
+    // Navigate back to budget page
+    await this.page.goBack();
+  }
+
+  async disablePayPeriods() {
+    await this.enableExperimentalFeature('Pay periods');
+    // Clicking again will disable since enableExperimentalFeature checks if already enabled
+    const featureCheckbox = this.page.getByRole('checkbox', {
+      name: 'Pay periods',
+    });
+    if (await featureCheckbox.isChecked()) {
+      await featureCheckbox.click();
+    }
+    await this.page.goBack();
+  }
 }

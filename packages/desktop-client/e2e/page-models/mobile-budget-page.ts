@@ -309,6 +309,32 @@ export class MobileBudgetPage {
     });
   }
 
+  async goToNextPayPeriod({ maxAttempts = 3 }: { maxAttempts?: number } = {}) {
+    return await this.goToNextMonth({ maxAttempts });
+  }
+
+  async goToPreviousPayPeriod({
+    maxAttempts = 3,
+  }: { maxAttempts?: number } = {}) {
+    return await this.goToPreviousMonth({ maxAttempts });
+  }
+
+  async getCurrentPeriodLabel() {
+    const labelText = await this.selectedBudgetMonthButton.textContent();
+    if (!labelText) {
+      throw new Error('Failed to get the current period label.');
+    }
+    return labelText.trim();
+  }
+
+  async getCurrentPeriodDateRange() {
+    // The date range should be visible somewhere near the period selector
+    // This will need to be updated based on actual UI implementation
+    const dateRangeLocator = this.heading.locator('text=/\\d{1,2}\\/\\d{1,2}/');
+    const dateRangeText = await dateRangeLocator.textContent();
+    return dateRangeText?.trim();
+  }
+
   async #getButtonForEnvelopeBudgetSummary({
     throwIfNotFound = true,
   }: { throwIfNotFound?: boolean } = {}) {
