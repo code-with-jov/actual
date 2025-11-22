@@ -1,5 +1,12 @@
 // @ts-strict-ignore
+import * as d from 'date-fns';
+
 import * as monthUtils from '../../shared/months';
+import {
+  isPayPeriod,
+  getPayPeriodConfig,
+  generatePayPeriods,
+} from '../../shared/pay-periods';
 import {
   getNextDate,
   getDateWithSkippedWeekend,
@@ -23,6 +30,50 @@ type ScheduleTemplateTarget = {
   full: boolean;
   repeat: boolean;
 };
+
+/**
+ * Counts how many pay periods exist in the same calendar month as the given pay period ID.
+ * Returns 1 if not a pay period (i.e., it's a regular calendar month).
+ */
+function getPayPeriodCountInMonth(monthId: string): number {
+  if (!isPayPeriod(monthId)) {
+    return 1;
+  }
+
+  const config = getPayPeriodConfig();
+  if (!config) {
+    return 1;
+  }
+
+  const year = parseInt(monthId.slice(0, 4));
+  const periodIndex = parseInt(monthId.slice(5, 7)) - 12;
+
+  // Get the start date of this pay period to find its calendar month
+  const periods = generatePayPeriods(year, config);
+  const currentPeriod = periods.find(p => p.monthId === monthId);
+  if (!currentPeriod) {
+    return 1;
+  }
+
+  const startDate = new Date(currentPeriod.startDate);
+  const calendarMonth = d.format(startDate, 'yyyy-MM');
+
+  // Count how many pay periods start in this calendar month
+  const monthStart = d.startOfMonth(new Date(calendarMonth + '-01'));
+  const monthEnd = d.endOfMonth(monthStart);
+
+  let count = 0;
+  for (const period of periods) {
+    const periodStartDate = new Date(period.startDate);
+    if (
+      d.isWithinInterval(periodStartDate, { start: monthStart, end: monthEnd })
+    ) {
+      count++;
+    }
+  }
+
+  return count || 1;
+}
 
 async function createScheduleList(
   templates: ScheduleTemplate[],
@@ -147,7 +198,14 @@ async function createScheduleList(
               break;
             }
           }
-          t[t.length - 1].target = -monthlyTarget;
+
+          // Prorate the monthly target across pay periods if applicable
+          // Only prorate if this is a sinking fund (not full amount)
+          const isFull = template.full === null ? false : template.full;
+          const payPeriodCount = isFull
+            ? 1
+            : getPayPeriodCountInMonth(current_month);
+          t[t.length - 1].target = -monthlyTarget / payPeriodCount;
         }
       } else {
         errors.push(
