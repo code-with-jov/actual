@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 
@@ -21,6 +21,7 @@ import {
 } from 'loot-core/types/models';
 
 import { EditablePageHeaderTitle } from '@desktop-client/components/EditablePageHeaderTitle';
+import { FinancialText } from '@desktop-client/components/FinancialText';
 import { MobileBackButton } from '@desktop-client/components/mobile/MobileBackButton';
 import {
   MobilePageHeader,
@@ -99,13 +100,15 @@ function CashFlowInner({ widget }: CashFlowInnerProps) {
   );
   const [latestTransaction, setLatestTransaction] = useState('');
 
-  const [isConcise, setIsConcise] = useState(() => {
+  const [isConcise, setIsConcise] = useState(false);
+
+  useEffect(() => {
     const numDays = d.differenceInCalendarDays(
       d.parseISO(end),
       d.parseISO(start),
     );
-    return numDays > 31 * 3;
-  });
+    setIsConcise(numDays > 31 * 3);
+  }, [start, end]);
 
   const params = useMemo(
     () =>
@@ -153,7 +156,7 @@ function CashFlowInner({ widget }: CashFlowInnerProps) {
         .rangeInclusive(earliestMonth, latestMonth)
         .map(month => ({
           name: month,
-          pretty: monthUtils.format(month, 'MMMM, yyyy', locale),
+          pretty: monthUtils.format(month, 'MMMM yyyy', locale),
         }))
         .reverse();
 
@@ -176,16 +179,9 @@ function CashFlowInner({ widget }: CashFlowInnerProps) {
   }, [latestTransaction, widget?.meta?.timeFrame]);
 
   function onChangeDates(start: string, end: string, mode: TimeFrame['mode']) {
-    const numDays = d.differenceInCalendarDays(
-      d.parseISO(end),
-      d.parseISO(start),
-    );
-    const isConcise = numDays > 31 * 3;
-
     setStart(start);
     setEnd(end);
     setMode(mode);
-    setIsConcise(isConcise);
   }
 
   const navigate = useNavigate();
@@ -326,11 +322,11 @@ function CashFlowInner({ widget }: CashFlowInnerProps) {
               </Block>
             }
             right={
-              <Text style={{ fontWeight: 600 }}>
+              <FinancialText style={{ fontWeight: 600 }}>
                 <PrivacyFilter>
                   {format(totalIncome, 'financial')}
                 </PrivacyFilter>
-              </Text>
+              </FinancialText>
             }
           />
 
@@ -342,11 +338,11 @@ function CashFlowInner({ widget }: CashFlowInnerProps) {
               </Block>
             }
             right={
-              <Text style={{ fontWeight: 600 }}>
+              <FinancialText style={{ fontWeight: 600 }}>
                 <PrivacyFilter>
                   {format(totalExpenses, 'financial')}
                 </PrivacyFilter>
-              </Text>
+              </FinancialText>
             }
           />
 
@@ -358,11 +354,11 @@ function CashFlowInner({ widget }: CashFlowInnerProps) {
               </Block>
             }
             right={
-              <Text style={{ fontWeight: 600 }}>
+              <FinancialText style={{ fontWeight: 600 }}>
                 <PrivacyFilter>
                   {format(totalTransfers, 'financial')}
                 </PrivacyFilter>
-              </Text>
+              </FinancialText>
             }
           />
           <Text style={{ fontWeight: 600 }}>

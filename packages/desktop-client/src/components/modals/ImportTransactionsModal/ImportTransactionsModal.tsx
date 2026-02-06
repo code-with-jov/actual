@@ -1,16 +1,18 @@
 // @ts-strict-ignore
 import React, {
-  useState,
-  useEffect,
   useCallback,
+  useEffect,
+  useEffectEvent,
+  useState,
   type ComponentProps,
 } from 'react';
-import { useTranslation, Trans } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { Button, ButtonWithLoading } from '@actual-app/components/button';
 import { Input } from '@actual-app/components/input';
 import { Select } from '@actual-app/components/select';
 import { SpaceBetween } from '@actual-app/components/space-between';
+import { styles } from '@actual-app/components/styles';
 import { Text } from '@actual-app/components/text';
 import { theme } from '@actual-app/components/theme';
 import { View } from '@actual-app/components/view';
@@ -167,7 +169,7 @@ export function ImportTransactionsModal({
   const dateFormat = useDateFormat() || ('MM/dd/yyyy' as const);
   const [prefs, savePrefs] = useSyncedPrefs();
   const dispatch = useDispatch();
-  const categories = useCategories();
+  const { list: categories } = useCategories();
 
   const [multiplierAmount, setMultiplierAmount] = useState('');
   const [loadingState, setLoadingState] = useState<
@@ -226,18 +228,30 @@ export function ImportTransactionsModal({
 
   const getImportPreview = useCallback(
     async (
-      transactions,
-      filetype,
-      flipAmount,
-      fieldMappings,
-      splitMode,
+      transactions: ImportTransaction[],
+      filetype: string,
+      flipAmount: boolean,
+      fieldMappings: FieldMapping | null,
+      splitMode: boolean,
       parseDateFormat: DateFormat,
-      inOutMode,
-      outValue,
-      multiplierAmount,
+      inOutMode: boolean,
+      outValue: string,
+      multiplierAmount: string,
     ) => {
       const previewTransactions = [];
       const inOutModeEnabled = isOfxFile(filetype) ? false : inOutMode;
+      const getTransDate: (trans: ImportTransaction) => string | null =
+        isOfxFile(filetype)
+          ? trans => trans.date ?? null
+          : trans => parseDate(trans.date, parseDateFormat);
+
+      // Note that the sort will behave unpredictably if any date fails to parse.
+      transactions.sort((a, b) => {
+        const aDate = getTransDate(a);
+        const bDate = getTransDate(b);
+
+        return aDate < bDate ? 1 : aDate === bDate ? 0 : -1;
+      });
 
       for (let trans of transactions) {
         if (trans.isMatchedTransaction) {
@@ -249,9 +263,7 @@ export function ImportTransactionsModal({
           ? applyFieldMappings(trans, fieldMappings)
           : trans;
 
-        const date = isOfxFile(filetype)
-          ? trans.date
-          : parseDate(trans.date, parseDateFormat);
+        const date = getTransDate(trans);
         if (date == null) {
           console.log(
             `Unable to parse date ${
@@ -278,7 +290,7 @@ export function ImportTransactionsModal({
           break;
         }
 
-        const category_id = parseCategoryFields(trans, categories.list);
+        const category_id = parseCategoryFields(trans, categories);
         if (category_id != null) {
           trans.category = category_id;
         }
@@ -339,7 +351,7 @@ export function ImportTransactionsModal({
             // add the updated existing transaction in the list, with the
             // isMatchedTransaction flag to identify it in display and not send it again
             existing_trx.isMatchedTransaction = true;
-            existing_trx.category = categories.list.find(
+            existing_trx.category = categories.find(
               cat => cat.id === existing_trx.category,
             )?.name;
             // add parent transaction attribute to mimic behaviour
@@ -354,7 +366,7 @@ export function ImportTransactionsModal({
           return next;
         }, []);
     },
-    [accountId, categories.list, clearOnImport, dispatch],
+    [accountId, categories, clearOnImport, dispatch],
   );
 
   const parse = useCallback(
@@ -431,12 +443,7 @@ export function ImportTransactionsModal({
           setParseDateFormat(null);
         }
 
-        // Reverse the transactions because it's very common for them to
-        // be ordered ascending, but we show transactions descending by
-        // date. This is purely cosmetic.
-        const reversedTransactions =
-          transactions.reverse() as ImportTransaction[];
-        setParsedTransactions(reversedTransactions);
+        setParsedTransactions(transactions as ImportTransaction[]);
       }
 
       setLoadingState(null);
@@ -620,7 +627,7 @@ export function ImportTransactionsModal({
         break;
       }
 
-      const category_id = parseCategoryFields(trans, categories.list);
+      const category_id = parseCategoryFields(trans, categories);
       trans.category = category_id;
 
       const {
@@ -712,7 +719,7 @@ export function ImportTransactionsModal({
     close();
   }
 
-  const runImportPreview = useCallback(async () => {
+  const onImportPreview = useEffectEvent(async () => {
     // always start from the original parsed transactions, not the previewed ones to ensure rules run
     const transactionPreview = await getImportPreview(
       parsedTransactions,
@@ -726,38 +733,15 @@ export function ImportTransactionsModal({
       multiplierAmount,
     );
     setTransactions(transactionPreview);
-  }, [
-    getImportPreview,
-    parsedTransactions,
-    filetype,
-    flipAmount,
-    fieldMappings,
-    splitMode,
-    parseDateFormat,
-    inOutMode,
-    outValue,
-    multiplierAmount,
-  ]);
+  });
 
   useEffect(() => {
     if (parsedTransactions.length === 0 || loadingState === 'parsing') {
       return;
     }
 
-    runImportPreview();
-    // intentionally exclude runImportPreview from dependencies to avoid infinite rerenders
-  }, [
-    filetype,
-    flipAmount,
-    fieldMappings,
-    splitMode,
-    parseDateFormat,
-    inOutMode,
-    outValue,
-    multiplierAmount,
-    loadingState,
-    parsedTransactions.length,
-  ]);
+    onImportPreview();
+  }, [loadingState, parsedTransactions.length]);
 
   const headers: ComponentProps<typeof TableHeader>['headers'] = [
     { name: t('Date'), width: 200 },
@@ -822,11 +806,7 @@ export function ImportTransactionsModal({
           )}
           {(!error || !error.parsed) && (
             <View
-              style={{
-                flex: 'unset',
-                height: 300,
-                border: '1px solid ' + theme.tableBorder,
-              }}
+              style={{ ...styles.tableContainer, height: 300, flex: 'unset' }}
             >
               <TableHeader headers={headers} />
 
@@ -867,7 +847,7 @@ export function ImportTransactionsModal({
                       outValue={outValue}
                       flipAmount={flipAmount}
                       multiplierAmount={multiplierAmount}
-                      categories={categories.list}
+                      categories={categories}
                       onCheckTransaction={onCheckTransaction}
                       reconcile={reconcile}
                     />

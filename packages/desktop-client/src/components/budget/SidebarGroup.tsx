@@ -1,5 +1,5 @@
 // @ts-strict-ignore
-import React, { type CSSProperties, type RefCallback, useRef } from 'react';
+import React, { useRef, type CSSProperties, type RefCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@actual-app/components/button';
@@ -207,7 +207,7 @@ export function SidebarGroup({
       style={{
         ...style,
         width: 200 + 100 * categoryExpandedState,
-        backgroundColor: theme.tableRowHeaderBackground,
+        backgroundColor: theme.budgetHeaderCurrentMonth,
         overflow: 'hidden',
         '& .hover-visible': {
           display: 'none',

@@ -16,9 +16,10 @@ import * as monthUtils from 'loot-core/shared/months';
 import {
   type CategoryEntity,
   type CategoryGroupEntity,
-  type TimeFrame,
   type CustomReportEntity,
   type sortByOpType,
+  type TimeFrame,
+  type TransactionEntity,
 } from 'loot-core/types/models';
 import { type SyncedPrefs } from 'loot-core/types/prefs';
 
@@ -26,7 +27,7 @@ import { CategorySelector } from './CategorySelector';
 import { defaultsList, disabledList } from './disabledList';
 import { getLiveRange } from './getLiveRange';
 import { ModeButton } from './ModeButton';
-import { type dateRangeProps, ReportOptions } from './ReportOptions';
+import { ReportOptions, type dateRangeProps } from './ReportOptions';
 import { validateEnd, validateStart } from './reportRanges';
 import { setSessionReport } from './setSessionReport';
 
@@ -39,20 +40,26 @@ type ReportSidebarProps = {
   categories: { list: CategoryEntity[]; grouped: CategoryGroupEntity[] };
   dateRangeLine: number;
   allIntervals: { name: string; pretty: string }[];
-  setDateRange: (value: string) => void;
-  setGraphType: (value: string) => void;
-  setGroupBy: (value: string) => void;
-  setInterval: (value: string) => void;
-  setBalanceType: (value: string) => void;
-  setSortBy: (value: string) => void;
-  setMode: (value: string) => void;
-  setIsDateStatic: (value: boolean) => void;
-  setShowEmpty: (value: boolean) => void;
-  setShowOffBudget: (value: boolean) => void;
-  setShowHiddenCategories: (value: boolean) => void;
-  setShowUncategorized: (value: boolean) => void;
-  setTrimIntervals: (value: boolean) => void;
-  setIncludeCurrentInterval: (value: boolean) => void;
+  setDateRange: (value: CustomReportEntity['dateRange']) => void;
+  setGraphType: (value: CustomReportEntity['graphType']) => void;
+  setGroupBy: (value: CustomReportEntity['groupBy']) => void;
+  setInterval: (value: CustomReportEntity['interval']) => void;
+  setBalanceType: (value: CustomReportEntity['balanceType']) => void;
+  setSortBy: (value: CustomReportEntity['sortBy']) => void;
+  setMode: (value: CustomReportEntity['mode']) => void;
+  setIsDateStatic: (value: CustomReportEntity['isDateStatic']) => void;
+  setShowEmpty: (value: CustomReportEntity['showEmpty']) => void;
+  setShowOffBudget: (value: CustomReportEntity['showOffBudget']) => void;
+  setShowHiddenCategories: (
+    value: CustomReportEntity['showHiddenCategories'],
+  ) => void;
+  setShowUncategorized: (
+    value: CustomReportEntity['showUncategorized'],
+  ) => void;
+  setTrimIntervals: (value: CustomReportEntity['trimIntervals']) => void;
+  setIncludeCurrentInterval: (
+    value: CustomReportEntity['includeCurrentInterval'],
+  ) => void;
   setSelectedCategories: (value: CategoryEntity[]) => void;
   onChangeDates: (
     dateStart: string,
@@ -63,8 +70,8 @@ type ReportSidebarProps = {
   disabledItems: (type: string) => string[];
   defaultItems: (item: string) => void;
   defaultModeItems: (graph: string, item: string) => void;
-  earliestTransaction: string;
-  latestTransaction: string;
+  earliestTransaction: TransactionEntity['date'];
+  latestTransaction: TransactionEntity['date'];
   firstDayOfWeekIdx: SyncedPrefs['firstDayOfWeekIdx'];
   isComplexCategoryCondition?: boolean;
 };

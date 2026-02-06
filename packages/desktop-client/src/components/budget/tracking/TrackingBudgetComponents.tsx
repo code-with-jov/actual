@@ -1,10 +1,10 @@
 // @ts-strict-ignore
 import React, {
-  type ComponentProps,
-  type CSSProperties,
   memo,
   useRef,
   useState,
+  type ComponentProps,
+  type CSSProperties,
 } from 'react';
 import { Trans } from 'react-i18next';
 
@@ -74,7 +74,7 @@ const headerLabelStyle: CSSProperties = {
 };
 
 const cellStyle: CSSProperties = {
-  color: theme.pageTextLight,
+  color: theme.tableHeaderText,
   fontWeight: 600,
 };
 
@@ -90,7 +90,7 @@ export const BudgetTotalsMonth = memo(function BudgetTotalsMonth() {
       }}
     >
       <View style={headerLabelStyle}>
-        <Text style={{ color: theme.pageTextLight }}>
+        <Text style={{ color: theme.tableHeaderText }}>
           <Trans>Budgeted</Trans>
         </Text>
         <TrackingCellValue
@@ -101,7 +101,7 @@ export const BudgetTotalsMonth = memo(function BudgetTotalsMonth() {
         </TrackingCellValue>
       </View>
       <View style={headerLabelStyle}>
-        <Text style={{ color: theme.pageTextLight }}>
+        <Text style={{ color: theme.tableHeaderText }}>
           <Trans>Spent</Trans>
         </Text>
         <TrackingCellValue binding={trackingBudget.totalSpent} type="financial">
@@ -109,7 +109,7 @@ export const BudgetTotalsMonth = memo(function BudgetTotalsMonth() {
         </TrackingCellValue>
       </View>
       <View style={headerLabelStyle}>
-        <Text style={{ color: theme.pageTextLight }}>
+        <Text style={{ color: theme.tableHeaderText }}>
           <Trans>Balance</Trans>
         </Text>
         <TrackingCellValue
@@ -133,12 +133,12 @@ export function IncomeHeaderMonth() {
       }}
     >
       <View style={headerLabelStyle}>
-        <Text style={{ color: theme.pageTextLight }}>
+        <Text style={{ color: theme.tableHeaderText }}>
           <Trans>Budgeted</Trans>
         </Text>
       </View>
       <View style={headerLabelStyle}>
-        <Text style={{ color: theme.pageTextLight }}>
+        <Text style={{ color: theme.tableHeaderText }}>
           <Trans>Received</Trans>
         </Text>
       </View>
@@ -287,6 +287,7 @@ export const CategoryMonth = memo(function CategoryMonth({
               variant="bare"
               onPress={() => setMenuOpen(true)}
               style={{
+                color: theme.budgetNumberNeutral, //make sure button is visible when hovered
                 padding: 3,
               }}
             >
@@ -354,8 +355,8 @@ export const CategoryMonth = memo(function CategoryMonth({
             padding: '0 4px',
             borderRadius: 4,
             ':hover': {
-              boxShadow: 'inset 0 0 0 1px ' + theme.mobileAccountShadow,
-              backgroundColor: theme.tableBackground,
+              boxShadow: 'inset 0 0 0 1px ' + theme.pageTextSubdued,
+              backgroundColor: theme.budgetCurrentMonth,
             },
           }}
           valueProps={{
@@ -370,7 +371,7 @@ export const CategoryMonth = memo(function CategoryMonth({
               onEdit(null);
             },
             style: {
-              backgroundColor: theme.tableBackground,
+              backgroundColor: theme.budgetCurrentMonth,
             },
           }}
           onSave={(parsedIntegerAmount: number | null) => {
@@ -401,9 +402,9 @@ export const CategoryMonth = memo(function CategoryMonth({
                 style={{
                   color:
                     scheduleStatus === 'missed'
-                      ? theme.errorText
+                      ? theme.budgetNumberNegative
                       : scheduleStatus === 'due'
-                        ? theme.warningText
+                        ? theme.templateNumberUnderFunded
                         : theme.upcomingText,
                 }}
                 onPress={() =>
@@ -446,10 +447,16 @@ export const CategoryMonth = memo(function CategoryMonth({
           width="flex"
           style={{ paddingRight: styles.monthRightPadding, textAlign: 'right' }}
         >
-          <span
-            role="button"
+          <Button
+            variant="bare"
             ref={triggerBalanceMenuRef}
-            onClick={() => !category.is_income && setBalanceMenuOpen(true)}
+            onPress={() => !category.is_income && setBalanceMenuOpen(true)}
+            style={{
+              justifyContent: 'flex-end',
+              background: 'transparent',
+              width: '100%',
+              padding: 0,
+            }}
           >
             <BalanceWithCarryover
               isDisabled={category.is_income}
@@ -459,7 +466,7 @@ export const CategoryMonth = memo(function CategoryMonth({
               budgeted={trackingBudget.catBudgeted(category.id)}
               longGoal={trackingBudget.catLongGoal(category.id)}
             />
-          </span>
+          </Button>
 
           <Popover
             triggerRef={triggerBalanceMenuRef}

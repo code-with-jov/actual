@@ -15,12 +15,12 @@ import { SidebarGroup } from './SidebarGroup';
 import { useBudgetComponents } from '.';
 
 import {
+  DropHighlight,
   useDraggable,
   useDroppable,
-  DropHighlight,
+  type DragState,
   type OnDragChangeCallback,
   type OnDropCallback,
-  type DragState,
 } from '@desktop-client/components/sort';
 import { Row, ROW_HEIGHT } from '@desktop-client/components/table';
 import { useDragRef } from '@desktop-client/hooks/useDragRef';
@@ -95,7 +95,7 @@ export function ExpenseGroup({
       style={{
         fontWeight: 600,
         opacity: group.hidden ? 0.33 : undefined,
-        backgroundColor: theme.tableRowHeaderBackground,
+        backgroundColor: theme.budgetHeaderCurrentMonth, //use budget colors
       }}
     >
       {dragState && !dragState.preview && dragState.type === 'group' && (

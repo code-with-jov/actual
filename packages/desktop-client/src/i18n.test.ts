@@ -1,6 +1,6 @@
 import i18n from 'i18next';
 
-import { setI18NextLanguage, availableLanguages } from './i18n';
+import { availableLanguages, setI18NextLanguage } from './i18n';
 
 vi.mock('i18next', () => {
   const i18nMock = {
@@ -71,7 +71,7 @@ describe('setI18NextLanguage', () => {
     setI18NextLanguage('uk-ZZ');
 
     expect(console.info).toHaveBeenCalledWith(
-      'Unknown locale uk-ZZ, falling back to uk',
+      'Unknown locale uk-ZZ, falling back to uk-zz',
     );
     expect(i18n.changeLanguage).toHaveBeenCalledWith('uk');
   });

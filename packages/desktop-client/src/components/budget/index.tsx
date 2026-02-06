@@ -1,5 +1,11 @@
 // @ts-strict-ignore
-import React, { useMemo, useState, useEffect, type ComponentType } from 'react';
+import React, {
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useState,
+  type ComponentType,
+} from 'react';
 
 import { styles } from '@actual-app/components/styles';
 import { View } from '@actual-app/components/view';
@@ -20,23 +26,27 @@ import { TrackingBudgetProvider } from './tracking/TrackingBudgetContext';
 import { prewarmAllMonths, prewarmMonth } from './util';
 
 import {
-  applyBudgetAction,
-  getCategories,
-} from '@desktop-client/budget/budgetSlice';
+  useBudgetActions,
+  useDeleteCategoryGroupMutation,
+  useDeleteCategoryMutation,
+  useReorderCategoryGroupMutation,
+  useReorderCategoryMutation,
+  useSaveCategoryGroupMutation,
+  useSaveCategoryMutation,
+} from '@desktop-client/budget';
 import { useCategories } from '@desktop-client/hooks/useCategories';
-import { useCategoryActions } from '@desktop-client/hooks/useCategoryActions';
 import { useFeatureFlag } from '@desktop-client/hooks/useFeatureFlag';
 import { useGlobalPref } from '@desktop-client/hooks/useGlobalPref';
 import { useLocalPref } from '@desktop-client/hooks/useLocalPref';
+import { useNavigate } from '@desktop-client/hooks/useNavigate';
 import { SheetNameProvider } from '@desktop-client/hooks/useSheetName';
 import { useSpreadsheet } from '@desktop-client/hooks/useSpreadsheet';
 import { useSyncedPref } from '@desktop-client/hooks/useSyncedPref';
-import { useDispatch } from '@desktop-client/redux';
 
 export function Budget() {
   const currentMonth = monthUtils.currentMonth();
   const spreadsheet = useSpreadsheet();
-  const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [summaryCollapsed, setSummaryCollapsedPref] = useLocalPref(
     'budget.summaryCollapsed',
   );
@@ -56,10 +66,8 @@ export function Budget() {
   const [initialized, setInitialized] = useState(false);
   const { grouped: categoryGroups } = useCategories();
 
-  useEffect(() => {
+  const init = useEffectEvent(() => {
     async function run() {
-      await dispatch(getCategories());
-
       const { start, end } = await send('get-budget-bounds');
       setBounds({ start, end });
 
@@ -74,7 +82,8 @@ export function Budget() {
     }
 
     run();
-  }, []);
+  });
+  useEffect(() => init(), []);
 
   // Wire pay period config from synced prefs into month utils
   useEffect(() => {
@@ -162,13 +171,14 @@ export function Budget() {
     initialized,
   ]);
 
-  useEffect(() => {
+  const loadBoundBudgets = useEffectEvent(() => {
     send('get-budget-bounds').then(({ start, end }) => {
       if (bounds.start !== start || bounds.end !== end) {
         setBounds({ start, end });
       }
     });
-  }, []);
+  });
+  useEffect(() => loadBoundBudgets(), []);
 
   const onMonthSelect = async (month, numDisplayed) => {
     setStartMonthPref(month);
@@ -202,35 +212,63 @@ export function Budget() {
     }
   };
 
-  const onApplyBudgetTemplatesInGroup = async categories => {
-    dispatch(
-      applyBudgetAction({
-        month: startMonth,
-        type: 'apply-multiple-templates',
-        args: {
-          categories,
-        },
-      }),
-    );
-  };
-
-  const onBudgetAction = (month, type, args) => {
-    dispatch(applyBudgetAction({ month, type, args }));
-  };
-
   const onToggleCollapse = () => {
     setSummaryCollapsedPref(!summaryCollapsed);
   };
 
-  const {
-    onSaveCategory,
-    onDeleteCategory,
-    onSaveGroup,
-    onDeleteGroup,
-    onShowActivity,
-    onReorderCategory,
-    onReorderGroup,
-  } = useCategoryActions();
+  const onApplyBudgetTemplatesInGroup = async categories => {
+    applyBudgetAction.mutate({
+      month: startMonth,
+      type: 'apply-multiple-templates',
+      args: {
+        categories,
+      },
+    });
+  };
+
+  const onShowActivity = (categoryId, month) => {
+    const filterConditions = [
+      { field: 'category', op: 'is', value: categoryId, type: 'id' },
+      {
+        field: 'date',
+        op: 'is',
+        value: month,
+        options: { month: true },
+        type: 'date',
+      },
+    ];
+    navigate('/accounts', {
+      state: {
+        goBack: true,
+        filterConditions,
+        categoryId,
+      },
+    });
+  };
+
+  const saveCategory = useSaveCategoryMutation();
+  const onSaveCategory = category => {
+    saveCategory.mutate({ category });
+  };
+  const deleteCategory = useDeleteCategoryMutation();
+  const onDeleteCategory = id => {
+    deleteCategory.mutate({ id });
+  };
+  const reorderCategory = useReorderCategoryMutation();
+  const saveCategoryGroup = useSaveCategoryGroupMutation();
+  const onSaveCategoryGroup = group => {
+    saveCategoryGroup.mutate({ group });
+  };
+  const deleteCategoryGroup = useDeleteCategoryGroupMutation();
+  const onDeleteCategoryGroup = id => {
+    deleteCategoryGroup.mutate({ id });
+  };
+  const reorderCategoryGroup = useReorderCategoryGroupMutation();
+  const applyBudgetAction = useBudgetActions();
+
+  const onBudgetAction = (month, type, args) => {
+    applyBudgetAction.mutate({ month, type, args });
+  };
 
   // Derive the month to render based on pay period view toggle
   const derivedStartMonth = useMemo(() => {
@@ -268,13 +306,13 @@ export function Budget() {
           maxMonths={maxMonths}
           onMonthSelect={onMonthSelect}
           onDeleteCategory={onDeleteCategory}
-          onDeleteGroup={onDeleteGroup}
+          onDeleteGroup={onDeleteCategoryGroup}
           onSaveCategory={onSaveCategory}
-          onSaveGroup={onSaveGroup}
+          onSaveGroup={onSaveCategoryGroup}
           onBudgetAction={onBudgetAction}
           onShowActivity={onShowActivity}
-          onReorderCategory={onReorderCategory}
-          onReorderGroup={onReorderGroup}
+          onReorderCategory={reorderCategory.mutate}
+          onReorderGroup={reorderCategoryGroup.mutate}
           onApplyBudgetTemplatesInGroup={onApplyBudgetTemplatesInGroup}
         />
       </TrackingBudgetProvider>
@@ -294,13 +332,13 @@ export function Budget() {
           maxMonths={maxMonths}
           onMonthSelect={onMonthSelect}
           onDeleteCategory={onDeleteCategory}
-          onDeleteGroup={onDeleteGroup}
+          onDeleteGroup={onDeleteCategoryGroup}
           onSaveCategory={onSaveCategory}
-          onSaveGroup={onSaveGroup}
+          onSaveGroup={onSaveCategoryGroup}
           onBudgetAction={onBudgetAction}
           onShowActivity={onShowActivity}
-          onReorderCategory={onReorderCategory}
-          onReorderGroup={onReorderGroup}
+          onReorderCategory={reorderCategory.mutate}
+          onReorderGroup={reorderCategoryGroup.mutate}
           onApplyBudgetTemplatesInGroup={onApplyBudgetTemplatesInGroup}
         />
       </EnvelopeBudgetProvider>

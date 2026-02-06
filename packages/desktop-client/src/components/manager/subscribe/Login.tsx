@@ -1,5 +1,5 @@
 // @ts-strict-ignore
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router';
 
@@ -19,7 +19,7 @@ import { send } from 'loot-core/platform/client/fetch';
 import { isElectron } from 'loot-core/shared/environment';
 import { type OpenIdConfig } from 'loot-core/types/models';
 
-import { useBootstrapped, Title } from './common';
+import { Title, useBootstrapped } from './common';
 import { OpenIdForm } from './OpenIdForm';
 
 import { Link } from '@desktop-client/components/common/Link';
@@ -29,7 +29,6 @@ import {
 } from '@desktop-client/components/ServerContext';
 import { useNavigate } from '@desktop-client/hooks/useNavigate';
 import { useDispatch } from '@desktop-client/redux';
-import { warningBackground } from '@desktop-client/style/themes/dark';
 import { loggedIn } from '@desktop-client/users/usersSlice';
 
 function PasswordLogin({ setError, dispatch }) {
@@ -171,13 +170,11 @@ function OpenIdLogin({ setError }) {
             <Button
               variant="primary"
               onPress={onSubmitOpenId}
-              style={
-                warningBackground && {
-                  padding: 6,
-                  fontSize: 14,
-                  width: 170,
-                }
-              }
+              style={{
+                padding: 6,
+                fontSize: 14,
+                width: 170,
+              }}
               isDisabled={
                 firstLoginPassword === '' &&
                 askForPassword &&

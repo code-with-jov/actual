@@ -1,3 +1,5 @@
+import { type Currency } from 'loot-core/shared/currencies';
+
 import { type CategoryEntity } from '../../types/models';
 import { setPayPeriodConfig } from '../../shared/pay-periods';
 import * as db from '../db';
@@ -39,6 +41,14 @@ describe('runSchedule', () => {
     const to_budget = 0;
     const errors: string[] = [];
     const category = { id: '1', name: 'Test Category' } as CategoryEntity;
+    const currency: Currency = {
+      code: '',
+      symbol: '',
+      name: '',
+      decimalPlaces: 2,
+      numberFormat: 'comma-dot',
+      symbolFirst: false,
+    };
 
     vi.mocked(db.first).mockResolvedValue({ id: 1, completed: 0 });
     vi.mocked(getRuleForSchedule).mockResolvedValue(
@@ -85,6 +95,7 @@ describe('runSchedule', () => {
       to_budget,
       errors,
       category,
+      currency,
     );
 
     // Then
@@ -110,6 +121,14 @@ describe('runSchedule', () => {
     const to_budget = 0;
     const errors: string[] = [];
     const category = { id: '1', name: 'Test Category' } as CategoryEntity;
+    const currency: Currency = {
+      code: '',
+      symbol: '',
+      name: '',
+      decimalPlaces: 2,
+      numberFormat: 'comma-dot',
+      symbolFirst: false,
+    };
 
     vi.mocked(db.first).mockResolvedValue({ id: 1, completed: 0 });
     vi.mocked(getRuleForSchedule).mockResolvedValue(
@@ -156,6 +175,7 @@ describe('runSchedule', () => {
       to_budget,
       errors,
       category,
+      currency,
     );
 
     // Then
