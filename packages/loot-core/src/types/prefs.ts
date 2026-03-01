@@ -6,7 +6,14 @@ export type FeatureFlag =
   | 'currency'
   | 'crossoverReport'
   | 'customThemes'
-  | 'budgetAnalysisReport';
+  | 'budgetAnalysisReport'
+  | 'payPeriodsEnabled';
+
+export type PayPeriodConfig = {
+  enabled: boolean;
+  payFrequency: 'weekly' | 'biweekly' | 'monthly';
+  startDate: string;
+};
 
 /**
  * Cross-device preferences. These sync across devices when they are changed.
@@ -47,7 +54,10 @@ export type SyncedPrefs = Partial<
     | `ofx-fallback-missing-payee-${string}`
     | `flip-amount-${string}-${'csv' | 'qif'}`
     | `flags.${FeatureFlag}`
-    | `learn-categories`,
+    | `learn-categories`
+    | 'showPayPeriods'
+    | 'payPeriodFrequency'
+    | 'payPeriodStartDate',
     string
   >
 >;

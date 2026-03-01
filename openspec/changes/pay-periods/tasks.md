@@ -1,47 +1,47 @@
 ## 1. Types and Preferences
 
-- [ ] 1.1 Add `payPeriodsEnabled` to `FeatureFlag` type in `loot-core/src/types/prefs.ts`
-- [ ] 1.2 Add `showPayPeriods`, `payPeriodFrequency`, `payPeriodStartDate` to `SyncedPrefs` in `loot-core/src/types/prefs.ts`
-- [ ] 1.3 Define `PayPeriodConfig` type: `{ enabled: boolean; payFrequency: 'weekly' | 'biweekly' | 'monthly'; startDate: string }`
+- [x] 1.1 Add `payPeriodsEnabled` to `FeatureFlag` type in `loot-core/src/types/prefs.ts`
+- [x] 1.2 Add `showPayPeriods`, `payPeriodFrequency`, `payPeriodStartDate` to `SyncedPrefs` in `loot-core/src/types/prefs.ts`
+- [x] 1.3 Define `PayPeriodConfig` type: `{ enabled: boolean; payFrequency: 'weekly' | 'biweekly' | 'monthly'; startDate: string }`
 
 ## 2. Core Pay Period Engine (`pay-periods.ts`)
 
-- [ ] 2.1 Create `loot-core/src/shared/pay-periods.ts` with `PayPeriodConfig` type and `isPayPeriod(id)` function
-- [ ] 2.2 Implement `generatePayPeriods(year, config)` — calculates all period start/end dates for a year, projects cadence backward from `startDate` to find first period starting in January, returns `{ monthId, startDate, endDate, label }[]`
-- [ ] 2.3 Add assertion in `generatePayPeriods` that period count does not exceed 87 (ID space limit)
-- [ ] 2.4 Apply `memoize-one` to `generatePayPeriods` with cache key on `(year, payFrequency, startDate)`
-- [ ] 2.5 Implement `getPayPeriodFromDate(date, config)` — finds the period containing a given date, handling year-boundary case (date in Jan may belong to prior year's last period)
-- [ ] 2.6 Implement `getCurrentPayPeriod(date, config)` as an alias for `getPayPeriodFromDate`
-- [ ] 2.7 Implement `nextPayPeriod(monthId, config)` — increments MM, wraps to `nextYear-13` when MM exceeds the last period of that year
-- [ ] 2.8 Implement `prevPayPeriod(monthId, config)` — decrements MM, wraps to `prevYear-<last>` when MM falls below 13
-- [ ] 2.9 Implement `addPayPeriods(monthId, n, config)` — applies `nextPayPeriod` or `prevPayPeriod` n times, handling year boundaries
-- [ ] 2.10 Implement `generatePayPeriodRange(start, end, config)` — returns array of period IDs from start to end inclusive
-- [ ] 2.11 Implement `getPayPeriodLabel(monthId, config, short?)` — returns `'PP 1'` (short) or `'Pay Period 1 (Jan 5 – Jan 18)'` (long)
+- [x] 2.1 Create `loot-core/src/shared/pay-periods.ts` with `PayPeriodConfig` type and `isPayPeriod(id)` function
+- [x] 2.2 Implement `generatePayPeriods(year, config)` — calculates all period start/end dates for a year, projects cadence backward from `startDate` to find first period starting in January, returns `{ monthId, startDate, endDate, label }[]`
+- [x] 2.3 Add assertion in `generatePayPeriods` that period count does not exceed 87 (ID space limit)
+- [x] 2.4 Apply `memoize-one` to `generatePayPeriods` with cache key on `(year, payFrequency, startDate)`
+- [x] 2.5 Implement `getPayPeriodFromDate(date, config)` — finds the period containing a given date, handling year-boundary case (date in Jan may belong to prior year's last period)
+- [x] 2.6 Implement `getCurrentPayPeriod(date, config)` as an alias for `getPayPeriodFromDate`
+- [x] 2.7 Implement `nextPayPeriod(monthId, config)` — increments MM, wraps to `nextYear-13` when MM exceeds the last period of that year
+- [x] 2.8 Implement `prevPayPeriod(monthId, config)` — decrements MM, wraps to `prevYear-<last>` when MM falls below 13
+- [x] 2.9 Implement `addPayPeriods(monthId, n, config)` — applies `nextPayPeriod` or `prevPayPeriod` n times, handling year boundaries
+- [x] 2.10 Implement `generatePayPeriodRange(start, end, config)` — returns array of period IDs from start to end inclusive
+- [x] 2.11 Implement `getPayPeriodLabel(monthId, config, short?)` — returns `'PP 1'` (short) or `'Pay Period 1 (Jan 5 – Jan 18)'` (long)
 
 ## 3. Fix `months.ts` — Pay Period Awareness
 
-- [ ] 3.1 Modify `_parse(value, config?)` — when value is a pay period ID and config is provided, return the period's actual start date from `generatePayPeriods`; when value is a pay period ID and config is absent, throw a descriptive error
-- [ ] 3.2 Modify `bounds(month, config?)` — dispatch to pay period bounds via `generatePayPeriods` when `isPayPeriod(month)` and config provided
-- [ ] 3.3 Modify `prevMonth(month, config?)` — dispatch to `prevPayPeriod` when `isPayPeriod(month)` and config provided
-- [ ] 3.4 Modify `nextMonth(month, config?)` — dispatch to `nextPayPeriod` when `isPayPeriod(month)` and config provided
-- [ ] 3.5 Modify `addMonths(month, n, config?)` — dispatch to `addPayPeriods` when `isPayPeriod(month)` and config provided
-- [ ] 3.6 Modify `monthFromDate(date, config?)` — return `getPayPeriodFromDate(date, config)` when `config?.enabled` is true
-- [ ] 3.7 Modify `currentMonth(config?)` — return `getCurrentPayPeriod(new Date(), config)` when `config?.enabled` is true
-- [ ] 3.8 Modify `rangeInclusive(start, end, config?)` — enumerate period IDs via `generatePayPeriodRange` when both IDs are pay periods; throw on mixed calendar+period inputs
-- [ ] 3.9 Modify `nameForMonth(month, locale, config?)` — return pay period label from `getPayPeriodLabel` when `isPayPeriod(month)` and config provided
-- [ ] 3.10 Modify `isBefore(m1, m2, config?)` and `isAfter` — ensure pay period IDs compare correctly via period start dates
+- [x] 3.1 Modify `_parse(value, config?)` — when value is a pay period ID and config is provided, return the period's actual start date from `generatePayPeriods`; when value is a pay period ID and config is absent, throw a descriptive error
+- [x] 3.2 Modify `bounds(month, config?)` — dispatch to pay period bounds via `generatePayPeriods` when `isPayPeriod(month)` and config provided
+- [x] 3.3 Modify `prevMonth(month, config?)` — dispatch to `prevPayPeriod` when `isPayPeriod(month)` and config provided
+- [x] 3.4 Modify `nextMonth(month, config?)` — dispatch to `nextPayPeriod` when `isPayPeriod(month)` and config provided
+- [x] 3.5 Modify `addMonths(month, n, config?)` — dispatch to `addPayPeriods` when `isPayPeriod(month)` and config provided
+- [x] 3.6 Modify `monthFromDate(date, config?)` — return `getPayPeriodFromDate(date, config)` when `config?.enabled` is true
+- [x] 3.7 Modify `currentMonth(config?)` — return `getCurrentPayPeriod(new Date(), config)` when `config?.enabled` is true
+- [x] 3.8 Modify `rangeInclusive(start, end, config?)` — enumerate period IDs via `generatePayPeriodRange` when both IDs are pay periods; throw on mixed calendar+period inputs
+- [x] 3.9 Modify `nameForMonth(month, locale, config?)` — return pay period label from `getPayPeriodLabel` when `isPayPeriod(month)` and config provided
+- [x] 3.10 Modify `isBefore(m1, m2, config?)` and `isAfter` — ensure pay period IDs compare correctly via period start dates
 
 ## 4. Tests — Engine and `months.ts`
 
-- [ ] 4.1 Write unit tests for `isPayPeriod` boundary values (12, 13, 99)
-- [ ] 4.2 Write unit tests for `generatePayPeriods` — biweekly (26 periods), weekly (52/53), monthly (12 periods with date-based boundaries)
-- [ ] 4.3 Write unit tests for year-based numbering: `2024-13` is always period 1 regardless of start date configuration timing
-- [ ] 4.4 Write unit tests for `getPayPeriodFromDate` — including year-boundary case (Jan date in prior year's last period)
-- [ ] 4.5 Write unit tests for period navigation (`nextPayPeriod`, `prevPayPeriod`, `addPayPeriods`) including year boundary wrap
-- [ ] 4.6 Write unit tests for `_parse` — throws on pay period ID without config; returns correct date with config
-- [ ] 4.7 Write unit tests for `bounds` — pay period returns actual period dates; calendar month unchanged
-- [ ] 4.8 Write unit tests for `monthFromDate` and `currentMonth` — enabled vs disabled config
-- [ ] 4.9 Write unit tests for `rangeInclusive` — period range, mixed-input error
+- [x] 4.1 Write unit tests for `isPayPeriod` boundary values (12, 13, 99)
+- [x] 4.2 Write unit tests for `generatePayPeriods` — biweekly (26 periods), weekly (52/53), monthly (12 periods with date-based boundaries)
+- [x] 4.3 Write unit tests for year-based numbering: `2024-13` is always period 1 regardless of start date configuration timing
+- [x] 4.4 Write unit tests for `getPayPeriodFromDate` — including year-boundary case (Jan date in prior year's last period)
+- [x] 4.5 Write unit tests for period navigation (`nextPayPeriod`, `prevPayPeriod`, `addPayPeriods`) including year boundary wrap
+- [x] 4.6 Write unit tests for `_parse` — throws on pay period ID without config; returns correct date with config
+- [x] 4.7 Write unit tests for `bounds` — pay period returns actual period dates; calendar month unchanged
+- [x] 4.8 Write unit tests for `monthFromDate` and `currentMonth` — enabled vs disabled config
+- [x] 4.9 Write unit tests for `rangeInclusive` — period range, mixed-input error
 
 ## 5. Server: Preferences and Config Loading
 
