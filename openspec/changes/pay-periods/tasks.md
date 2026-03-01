@@ -45,19 +45,19 @@
 
 ## 5. Server: Preferences and Config Loading
 
-- [ ] 5.1 Add `loadPayPeriodConfig()` function to `loot-core/src/server/preferences/app.ts` — reads `showPayPeriods`, `payPeriodFrequency`, `payPeriodStartDate` from DB, returns `PayPeriodConfig`
-- [ ] 5.2 Call `loadPayPeriodConfig()` in the budget-open flow (`budgetfiles/app.ts` or equivalent) and thread config through the call chain
-- [ ] 5.3 Update `saveSyncedPrefs` to return the updated config when pay period prefs change, so callers can reload
+- [x] 5.1 Add `loadPayPeriodConfig()` function to `loot-core/src/server/preferences/app.ts` — reads `showPayPeriods`, `payPeriodFrequency`, `payPeriodStartDate` from DB, returns `PayPeriodConfig`
+- [x] 5.2 Call `loadPayPeriodConfig()` in the budget-open flow (`budgetfiles/app.ts` or equivalent) and thread config through the call chain
+- [x] 5.3 Update `saveSyncedPrefs` to return the updated config when pay period prefs change, so callers can reload
 
 ## 6. Server: Budget Engine Integration
 
-- [ ] 6.1 Update `getBudgetRange(start, end, config?)` in `base.ts` — when config enabled, use `generatePayPeriodRange` and period-aware buffer counts (3 periods before, 12 periods after) instead of calendar months
-- [ ] 6.2 Update `createBudget(months, config?)` in `base.ts` — pass config to `bounds(month, config)` and `prevMonth(month, config)` calls; no other structural change needed since `sheetForMonth` already works with period IDs
-- [ ] 6.3 Update `createAllBudgets(config?)` in `base.ts` — pass config through to `getBudgetRange` and `createBudget`
-- [ ] 6.4 Update `handleTransactionChange` in `base.ts` — pass config to `monthFromDate(date, config)` for period-aware transaction routing
-- [ ] 6.5 Update `handleAccountChange` and `handleCategoryMappingChange` in `base.ts` — ensure `createdMonths` set contains period IDs when pay periods are enabled
-- [ ] 6.6 Write integration tests for `createBudget` with pay period IDs — verify correct sheet names and SQL bounds
-- [ ] 6.7 Write integration tests for `handleTransactionChange` year-boundary routing
+- [x] 6.1 Update `getBudgetRange(start, end, config?)` in `base.ts` — when config enabled, use `generatePayPeriodRange` and period-aware buffer counts (3 periods before, 12 periods after) instead of calendar months
+- [x] 6.2 Update `createBudget(months, config?)` in `base.ts` — pass config to `bounds(month, config)` and `prevMonth(month, config)` calls; no other structural change needed since `sheetForMonth` already works with period IDs
+- [x] 6.3 Update `createAllBudgets(config?)` in `base.ts` — pass config through to `getBudgetRange` and `createBudget`
+- [x] 6.4 Update `handleTransactionChange` in `base.ts` — pass config to `monthFromDate(date, config)` for period-aware transaction routing
+- [x] 6.5 Update `handleAccountChange` and `handleCategoryMappingChange` in `base.ts` — ensure `createdMonths` set contains period IDs when pay periods are enabled
+- [x] 6.6 Write integration tests for `createBudget` with pay period IDs — verify correct sheet names and SQL bounds
+- [x] 6.7 Write integration tests for `handleTransactionChange` year-boundary routing
 
 ## 7. Frontend: Context and Hook
 

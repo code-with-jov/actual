@@ -1,8 +1,10 @@
 // @ts-strict-ignore
 import * as monthUtils from '../../shared/months';
+import { addPayPeriods, generatePayPeriodRange, isPayPeriod } from '../../shared/pay-periods';
 import { q } from '../../shared/query';
 import { getChangedValues } from '../../shared/util';
 import type { CategoryGroupEntity } from '../../types/models';
+import type { PayPeriodConfig } from '../../types/prefs';
 import { aqlQuery } from '../aql';
 import * as db from '../db';
 import * as sheet from '../sheet';
@@ -17,7 +19,25 @@ export function getBudgetType() {
   return meta.budgetType || 'envelope';
 }
 
-export function getBudgetRange(start: string, end: string) {
+export function getBudgetRange(
+  start: string,
+  end: string,
+  config?: PayPeriodConfig,
+) {
+  if (config?.enabled && isPayPeriod(start) && isPayPeriod(end)) {
+    // Period-aware buffer: 3 periods before, 12 periods after
+    if (start > end) {
+      start = end;
+    }
+    start = addPayPeriods(start, -3, config);
+    end = addPayPeriods(end, 12, config);
+    return {
+      start,
+      end,
+      range: generatePayPeriodRange(start, end, config),
+    };
+  }
+
   start = monthUtils.getMonth(start);
   end = monthUtils.getMonth(end);
 
@@ -87,7 +107,7 @@ function handleAccountChange(months, oldValue, newValue) {
   }
 }
 
-function handleTransactionChange(transaction, changedFields) {
+function handleTransactionChange(transaction, changedFields, config?: PayPeriodConfig) {
   if (
     (changedFields.has('date') ||
       changedFields.has('acct') ||
@@ -98,7 +118,7 @@ function handleTransactionChange(transaction, changedFields) {
     transaction.date &&
     transaction.category
   ) {
-    const month = monthUtils.monthFromDate(db.fromDateRepr(transaction.date));
+    const month = monthUtils.monthFromDate(db.fromDateRepr(transaction.date), config);
     const sheetName = monthUtils.sheetForMonth(month);
 
     sheet
@@ -146,7 +166,8 @@ function handleBudgetChange(budget) {
 }
 
 export function triggerBudgetChanges(oldValues, newValues) {
-  const { createdMonths = new Set() } = sheet.get().meta();
+  const { createdMonths = new Set(), payPeriodConfig } = sheet.get().meta();
+  const config: PayPeriodConfig | undefined = payPeriodConfig;
   const budgetType = getBudgetType();
   sheet.startTransaction();
 
@@ -167,9 +188,9 @@ export function triggerBudgetChanges(oldValues, newValues) {
           );
 
           if (oldValue) {
-            handleTransactionChange(oldValue, changed);
+            handleTransactionChange(oldValue, changed, config);
           }
-          handleTransactionChange(newValue, changed);
+          handleTransactionChange(newValue, changed, config);
         } else if (table === 'category_mapping') {
           handleCategoryMappingChange(createdMonths, oldValue, newValue);
         } else if (table === 'categories') {
@@ -178,6 +199,7 @@ export function triggerBudgetChanges(oldValues, newValues) {
               createdMonths,
               oldValue,
               newValue,
+              config,
             );
           } else {
             report.handleCategoryChange(createdMonths, oldValue, newValue);
@@ -225,7 +247,7 @@ export async function doTransfer(categoryIds, transferId) {
   });
 }
 
-export async function createBudget(months) {
+export async function createBudget(months, config?: PayPeriodConfig) {
   const { data: groups }: { data: CategoryGroupEntity[] } = await aqlQuery(
     q('category_groups').select('*'),
   );
@@ -238,13 +260,13 @@ export async function createBudget(months) {
   const budgetType = getBudgetType();
 
   if (budgetType === 'envelope') {
-    envelopeBudget.createBudget(meta, categories, months);
+    envelopeBudget.createBudget(meta, categories, months, config);
   }
 
   months.forEach(month => {
     if (!meta.createdMonths.has(month)) {
-      const prevMonth = monthUtils.prevMonth(month);
-      const { start, end } = monthUtils.bounds(month);
+      const prevMonth = monthUtils.prevMonth(month, config);
+      const { start, end } = monthUtils.bounds(month, config);
       const sheetName = monthUtils.sheetForMonth(month);
       const prevSheetName = monthUtils.sheetForMonth(prevMonth);
 
@@ -283,13 +305,13 @@ export async function createBudget(months) {
   await sheet.waitOnSpreadsheet();
 }
 
-export async function createAllBudgets() {
+export async function createAllBudgets(config?: PayPeriodConfig) {
   const earliestTransaction = await db.first<db.DbTransaction>(
     'SELECT * FROM transactions WHERE isChild=0 AND date IS NOT NULL ORDER BY date ASC LIMIT 1',
   );
   const earliestDate =
     earliestTransaction && db.fromDateRepr(earliestTransaction.date);
-  const currentMonth = monthUtils.currentMonth();
+  const currentMonth = monthUtils.currentMonth(config);
 
   // Get the range based off of the earliest transaction and the
   // current month. If no transactions currently exist the current
@@ -297,6 +319,7 @@ export async function createAllBudgets() {
   const { start, end, range } = getBudgetRange(
     earliestDate || currentMonth,
     currentMonth,
+    config,
   );
 
   const meta = sheet.get().meta();
@@ -304,7 +327,7 @@ export async function createAllBudgets() {
   const newMonths = range.filter(m => !createdMonths.has(m));
 
   if (newMonths.length > 0) {
-    await createBudget(range);
+    await createBudget(range, config);
   }
 
   return { start, end };
@@ -330,9 +353,10 @@ export async function setType(type) {
     }
   });
 
+  const { payPeriodConfig } = sheet.get().meta();
   sheet.get().startCacheBarrier();
   void sheet.loadUserBudgets(db);
-  const bounds = await createAllBudgets();
+  const bounds = await createAllBudgets(payPeriodConfig);
   sheet.get().endCacheBarrier();
 
   return bounds;
