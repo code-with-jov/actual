@@ -124,6 +124,7 @@ export function BudgetSummary({ month }: BudgetSummaryProps) {
           </View>
 
           <div
+            data-testid="budget-month-header"
             className={css({
               textAlign: 'center',
               marginTop: 3,
@@ -132,7 +133,9 @@ export function BudgetSummary({ month }: BudgetSummaryProps) {
               textDecorationSkip: 'ink',
             })}
           >
-            {monthUtils.format(month, 'MMMM', locale)}
+            {config?.enabled && isPayPeriod(month)
+              ? getPayPeriodLabel(month, config, true)
+              : monthUtils.format(month, 'MMMM', locale)}
           </div>
 
           <View

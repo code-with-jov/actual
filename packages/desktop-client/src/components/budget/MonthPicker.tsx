@@ -94,6 +94,7 @@ export const MonthPicker = ({
         <Link
           variant="button"
           buttonVariant="bare"
+          aria-label={t('Go to current period')}
           onPress={() => onSelect(monthUtils.currentMonth(config))}
           style={{
             padding: '3px 3px',
@@ -112,6 +113,7 @@ export const MonthPicker = ({
         <Link
           variant="button"
           buttonVariant="bare"
+          aria-label={t('Previous period')}
           onPress={() => onSelect(monthUtils.prevMonth(startMonth, config))}
           style={{
             padding: '3px 3px',
@@ -242,6 +244,7 @@ export const MonthPicker = ({
         <Link
           variant="button"
           buttonVariant="bare"
+          aria-label={t('Next period')}
           onPress={() => onSelect(monthUtils.nextMonth(startMonth, config))}
           style={{
             padding: '3px 3px',

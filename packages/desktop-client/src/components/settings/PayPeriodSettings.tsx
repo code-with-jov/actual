@@ -61,97 +61,108 @@ export function PayPeriodSettings() {
   };
 
   return (
-    <Setting
-      primaryAction={
-        <View style={{ gap: 10 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Checkbox
-              id="settings-showPayPeriods"
-              checked={enabled}
-              onChange={handleToggle}
-            />
-            <label
-              htmlFor="settings-showPayPeriods"
-              style={{ cursor: 'pointer' }}
+    <View data-testid="pay-period-settings">
+      <Setting
+        primaryAction={
+          <View style={{ gap: 10 }}>
+            <View
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
             >
-              <Trans>Enable pay period budgeting</Trans>
-            </label>
+              <Checkbox
+                id="settings-showPayPeriods"
+                checked={enabled}
+                onChange={handleToggle}
+              />
+              <label
+                htmlFor="settings-showPayPeriods"
+                style={{ cursor: 'pointer' }}
+              >
+                <Trans>Enable pay period budgeting</Trans>
+              </label>
+            </View>
+
+            {validationError && (
+              <Text style={{ color: theme.errorText, fontSize: 13 }}>
+                {validationError}
+              </Text>
+            )}
+
+            <FormField>
+              <FormLabel
+                title={t('Pay frequency')}
+                htmlFor="pay-period-frequency"
+              />
+              <Select
+                id="pay-period-frequency"
+                value={payPeriodFrequency || 'monthly'}
+                onChange={handleFrequencyChange}
+                options={FREQUENCY_OPTIONS}
+              />
+            </FormField>
+
+            {frequencyWarning && (
+              <Text style={{ color: theme.warningText, fontSize: 13 }}>
+                <Trans>
+                  Changing frequency will reset period numbering for the
+                  affected year. Budgeted amounts will be preserved.
+                </Trans>
+              </Text>
+            )}
+
+            <FormField>
+              <FormLabel
+                title={t('Pay period start date')}
+                htmlFor="pay-period-start-date"
+              />
+              <input
+                id="pay-period-start-date"
+                type="date"
+                value={payPeriodStartDate || ''}
+                onChange={e => {
+                  setPayPeriodStartDate(e.target.value);
+                  setValidationError(null);
+                }}
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: 4,
+                  border: '1px solid ' + theme.tableBorder,
+                  backgroundColor: theme.tableBackground,
+                  color: theme.tableText,
+                  fontSize: 14,
+                }}
+              />
+            </FormField>
+
+            {enabled && (
+              <Button
+                onPress={() => {
+                  setShowPayPeriods('false');
+                  setValidationError(null);
+                }}
+                style={{ alignSelf: 'flex-start' }}
+              >
+                <Trans>Disable pay periods</Trans>
+              </Button>
+            )}
           </View>
-
-          {validationError && (
-            <Text style={{ color: theme.errorText, fontSize: 13 }}>
-              {validationError}
-            </Text>
-          )}
-
-          <FormField>
-            <FormLabel title={t('Pay frequency')} htmlFor="pay-period-frequency" />
-            <Select
-              id="pay-period-frequency"
-              value={payPeriodFrequency || 'monthly'}
-              onChange={handleFrequencyChange}
-              options={FREQUENCY_OPTIONS}
-            />
-          </FormField>
-
-          {frequencyWarning && (
-            <Text style={{ color: theme.warningText, fontSize: 13 }}>
-              <Trans>
-                Changing frequency will reset period numbering for the affected
-                year. Budgeted amounts will be preserved.
-              </Trans>
-            </Text>
-          )}
-
-          <FormField>
-            <FormLabel title={t('Pay period start date')} htmlFor="pay-period-start-date" />
-            <input
-              id="pay-period-start-date"
-              type="date"
-              value={payPeriodStartDate || ''}
-              onChange={e => {
-                setPayPeriodStartDate(e.target.value);
-                setValidationError(null);
-              }}
-              style={{
-                padding: '4px 8px',
-                borderRadius: 4,
-                border: '1px solid ' + theme.tableBorder,
-                backgroundColor: theme.tableBackground,
-                color: theme.tableText,
-                fontSize: 14,
-              }}
-            />
-          </FormField>
-
-          {enabled && (
-            <Button
-              onPress={() => {
-                setShowPayPeriods('false');
-                setValidationError(null);
-              }}
-              style={{ alignSelf: 'flex-start' }}
-            >
-              <Trans>Disable pay periods</Trans>
-            </Button>
-          )}
-        </View>
-      }
-    >
-      <Text>
-        <Trans>
-          <strong>Pay period budgeting</strong> replaces calendar months with
-          your actual pay schedule (weekly, biweekly, or monthly). Set a start
-          date that matches when your first pay period of the year begins.
-        </Trans>
-      </Text>
-      <Text>
-        <Trans>
-          Pay periods use IDs starting from 13 to distinguish them from
-          calendar months. Period 1 of each year always starts on or before
-          January 1 based on your cadence.
-        </Trans>
-      </Text>
-    </Setting>
+        }
+      >
+        <Text>
+          <Trans>
+            <strong>Pay period budgeting</strong> replaces calendar months with
+            your actual pay schedule (weekly, biweekly, or monthly). Set a
+            start date that matches when your first pay period of the year
+            begins.
+          </Trans>
+        </Text>
+        <Text>
+          <Trans>
+            Pay periods use IDs starting from 13 to distinguish them from
+            calendar months. Period 1 of each year always starts on or before
+            January 1 based on your cadence.
+          </Trans>
+        </Text>
+      </Setting>
+    </View>
   );
 }

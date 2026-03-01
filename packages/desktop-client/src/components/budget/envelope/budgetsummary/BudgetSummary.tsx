@@ -128,6 +128,7 @@ export const BudgetSummary = memo(({ month }: BudgetSummaryProps) => {
           </View>
 
           <div
+            data-testid="budget-month-header"
             className={css([
               {
                 textAlign: 'center',
@@ -139,7 +140,9 @@ export const BudgetSummary = memo(({ month }: BudgetSummaryProps) => {
               currentMonth === month && { fontWeight: 'bold' },
             ])}
           >
-            {monthUtils.format(month, 'MMMM', locale)}
+            {config?.enabled && isPayPeriod(month)
+              ? getPayPeriodLabel(month, config, true)
+              : monthUtils.format(month, 'MMMM', locale)}
           </div>
 
           <View
