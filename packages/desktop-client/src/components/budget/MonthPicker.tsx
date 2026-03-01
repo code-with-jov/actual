@@ -13,8 +13,10 @@ import { theme } from '@actual-app/components/theme';
 import { View } from '@actual-app/components/view';
 
 import * as monthUtils from 'loot-core/shared/months';
+import { getPayPeriodLabel, isPayPeriod } from 'loot-core/shared/pay-periods';
 
 import type { MonthBounds } from './MonthsContext';
+import { usePayPeriodConfig } from './PayPeriodContext';
 
 import { Link } from '@desktop-client/components/common/Link';
 import { useLocale } from '@desktop-client/hooks/useLocale';
@@ -40,23 +42,21 @@ export const MonthPicker = ({
   const [hoverId, setHoverId] = useState(null);
   const [targetMonthCount, setTargetMonthCount] = useState(12);
 
-  const currentMonth = monthUtils.currentMonth();
+  const config = usePayPeriodConfig();
+  const currentMonth = monthUtils.currentMonth(config);
   const firstSelectedMonth = startMonth;
 
   const lastSelectedMonth = monthUtils.addMonths(
     firstSelectedMonth,
     numDisplayed - 1,
+    config,
   );
 
+  const rangeOffset = Math.floor(targetMonthCount / 2 - numDisplayed / 2);
   const range = monthUtils.rangeInclusive(
-    monthUtils.subMonths(
-      firstSelectedMonth,
-      Math.floor(targetMonthCount / 2 - numDisplayed / 2),
-    ),
-    monthUtils.addMonths(
-      lastSelectedMonth,
-      Math.floor(targetMonthCount / 2 - numDisplayed / 2),
-    ),
+    monthUtils.addMonths(firstSelectedMonth, -rangeOffset, config),
+    monthUtils.addMonths(lastSelectedMonth, rangeOffset, config),
+    config,
   );
 
   const firstSelectedIndex =
@@ -94,7 +94,7 @@ export const MonthPicker = ({
         <Link
           variant="button"
           buttonVariant="bare"
-          onPress={() => onSelect(currentMonth)}
+          onPress={() => onSelect(monthUtils.currentMonth(config))}
           style={{
             padding: '3px 3px',
             marginRight: '12px',
@@ -112,7 +112,7 @@ export const MonthPicker = ({
         <Link
           variant="button"
           buttonVariant="bare"
-          onPress={() => onSelect(monthUtils.prevMonth(startMonth))}
+          onPress={() => onSelect(monthUtils.prevMonth(startMonth, config))}
           style={{
             padding: '3px 3px',
             marginRight: '12px',
@@ -128,7 +128,10 @@ export const MonthPicker = ({
           </View>
         </Link>
         {range.map((month, idx) => {
-          const monthName = monthUtils.format(month, 'MMM', locale);
+          const monthName =
+            config?.enabled && isPayPeriod(month)
+              ? getPayPeriodLabel(month, config, true)
+              : monthUtils.format(month, 'MMM', locale);
           const selected =
             idx >= firstSelectedIndex && idx <= lastSelectedIndex;
 
@@ -136,7 +139,7 @@ export const MonthPicker = ({
           const hovered =
             hoverId === null ? false : idx >= hoverId && idx <= lastHoverId;
 
-          const current = currentMonth === month;
+          const current = monthUtils.currentMonth(config) === month;
           const year = monthUtils.getYear(month);
 
           let showYearHeader = false;
@@ -239,7 +242,7 @@ export const MonthPicker = ({
         <Link
           variant="button"
           buttonVariant="bare"
-          onPress={() => onSelect(monthUtils.nextMonth(startMonth))}
+          onPress={() => onSelect(monthUtils.nextMonth(startMonth, config))}
           style={{
             padding: '3px 3px',
             marginLeft: '12px',

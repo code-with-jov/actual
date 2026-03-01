@@ -61,31 +61,31 @@
 
 ## 7. Frontend: Context and Hook
 
-- [ ] 7.1 Create `PayPeriodContext` and `PayPeriodProvider` in `desktop-client/src/contexts/PayPeriodContext.tsx`
-- [ ] 7.2 Create `usePayPeriodConfig()` hook that reads from `PayPeriodContext`
-- [ ] 7.3 In `budget/index.tsx`: read `showPayPeriods`, `payPeriodFrequency`, `payPeriodStartDate` via `useSyncedPref`; read `payPeriodsEnabled` via `useFeatureFlag`; construct `PayPeriodConfig`; wrap children in `PayPeriodProvider`
+- [x] 7.1 Create `PayPeriodContext` and `PayPeriodProvider` in `desktop-client/src/contexts/PayPeriodContext.tsx`
+- [x] 7.2 Create `usePayPeriodConfig()` hook that reads from `PayPeriodContext`
+- [x] 7.3 In `budget/index.tsx`: read `showPayPeriods`, `payPeriodFrequency`, `payPeriodStartDate` via `useSyncedPref`; read `payPeriodsEnabled` via `useFeatureFlag`; construct `PayPeriodConfig`; wrap children in `PayPeriodProvider`
 
 ## 8. Frontend: Budget Page Navigation
 
-- [ ] 8.1 Update `startMonth` initialization in `budget/index.tsx` — use `monthUtils.currentMonth(config)` so it returns a period ID when enabled
-- [ ] 8.2 Update previous/next navigation handlers to use `prevMonth(month, config)` and `nextMonth(month, config)`
-- [ ] 8.3 Update "go to current period" button to use `currentMonth(config)`
-- [ ] 8.4 Update `prewarmMonth` and `prewarmAllMonths` calls in `budget/index.tsx` to pass config
-- [ ] 8.5 Update budget bounds range (`getBudgetRange` equivalent on frontend) to use period IDs when enabled
+- [x] 8.1 Update `startMonth` initialization in `budget/index.tsx` — use `monthUtils.currentMonth(config)` so it returns a period ID when enabled
+- [x] 8.2 Update previous/next navigation handlers to use `prevMonth(month, config)` and `nextMonth(month, config)`
+- [x] 8.3 Update "go to current period" button to use `currentMonth(config)`
+- [x] 8.4 Update `prewarmMonth` and `prewarmAllMonths` calls in `budget/index.tsx` to pass config
+- [x] 8.5 Update budget bounds range (`getBudgetRange` equivalent on frontend) to use period IDs when enabled
 
 ## 9. Frontend: Budget Column Display
 
-- [ ] 9.1 Update `MonthPicker` / period picker component to display pay period labels using `getPayPeriodLabel` when config is active
-- [ ] 9.2 Update budget column header to display short period label (`PP 1`) when in pay period mode
-- [ ] 9.3 Update budget summary (income, spent, to-budget) to scope totals to the pay period date range when enabled
+- [x] 9.1 Update `MonthPicker` / period picker component to display pay period labels using `getPayPeriodLabel` when config is active
+- [x] 9.2 Update budget column header to display short period label (`PP 1`) when in pay period mode
+- [x] 9.3 Update budget summary (income, spent, to-budget) to scope totals to the pay period date range when enabled
 
 ## 10. Frontend: Settings UI
 
-- [ ] 10.1 Create `PayPeriodSettings` component in `desktop-client/src/components/settings/` with toggle, frequency selector, and date picker
-- [ ] 10.2 Wire `PayPeriodSettings` to synced prefs: save `showPayPeriods`, `payPeriodFrequency`, `payPeriodStartDate` on confirm
-- [ ] 10.3 Add validation: start date required before enabling; frequency required before enabling
-- [ ] 10.4 Add `PayPeriodSettings` to the budget settings page, gated on `payPeriodsEnabled` feature flag
-- [ ] 10.5 Add frequency change warning: inform user that changing frequency will reset period numbering for the affected year
+- [x] 10.1 Create `PayPeriodSettings` component in `desktop-client/src/components/settings/` with toggle, frequency selector, and date picker
+- [x] 10.2 Wire `PayPeriodSettings` to synced prefs: save `showPayPeriods`, `payPeriodFrequency`, `payPeriodStartDate` on confirm
+- [x] 10.3 Add validation: start date required before enabling; frequency required before enabling
+- [x] 10.4 Add `PayPeriodSettings` to the budget settings page, gated on `payPeriodsEnabled` feature flag
+- [x] 10.5 Add frequency change warning: inform user that changing frequency will reset period numbering for the affected year
 
 ## 11. End-to-End Verification
 
