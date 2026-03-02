@@ -14,6 +14,7 @@ import { css } from '@emotion/css';
 import { addMonths, subMonths } from 'loot-core/shared/months';
 
 import { MonthsContext } from './MonthsContext';
+import { usePayPeriodConfig } from './PayPeriodContext';
 
 import { useBudgetComponents } from '.';
 
@@ -21,6 +22,7 @@ import { useResizeObserver } from '@desktop-client/hooks/useResizeObserver';
 
 export function BudgetSummaries() {
   const { months } = useContext(MonthsContext);
+  const payPeriodConfig = usePayPeriodConfig();
   const [firstMonth] = months;
 
   const [widthState, setWidthState] = useState(0);
@@ -38,8 +40,8 @@ export function BudgetSummaries() {
   const prevMonth0 = useRef(firstMonth);
   const allMonths = useMemo(() => {
     const all = [...months];
-    all.unshift(subMonths(firstMonth, 1));
-    all.push(addMonths(months[months.length - 1], 1));
+    all.unshift(subMonths(firstMonth, 1, payPeriodConfig));
+    all.push(addMonths(months[months.length - 1], 1, payPeriodConfig));
     return all;
   }, [months, firstMonth]);
   const monthWidth = widthState / months.length;

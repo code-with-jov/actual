@@ -16,12 +16,14 @@ import { View } from '@actual-app/components/view';
 import { css } from '@emotion/css';
 
 import * as monthUtils from 'loot-core/shared/months';
+import { isPayPeriod, getPayPeriodLabel } from 'loot-core/shared/pay-periods';
 
 import { BudgetMonthMenu } from './BudgetMonthMenu';
 import { ExpenseTotal } from './ExpenseTotal';
 import { IncomeTotal } from './IncomeTotal';
 import { Saved } from './Saved';
 
+import { usePayPeriodConfig } from '@desktop-client/components/budget/PayPeriodContext';
 import { useTrackingBudget } from '@desktop-client/components/budget/tracking/TrackingBudgetContext';
 import { NotesButton } from '@desktop-client/components/NotesButton';
 import { useLocale } from '@desktop-client/hooks/useLocale';
@@ -34,6 +36,7 @@ type BudgetSummaryProps = {
 export function BudgetSummary({ month }: BudgetSummaryProps) {
   const locale = useLocale();
   const { t } = useTranslation();
+  const config = usePayPeriodConfig();
   const {
     currentMonth,
     summaryCollapsed: collapsed,
@@ -57,7 +60,10 @@ export function BudgetSummary({ month }: BudgetSummaryProps) {
     ? SvgArrowButtonDown1
     : SvgArrowButtonUp1;
 
-  const displayMonth = monthUtils.format(month, "MMMM ''yy", locale);
+  const displayMonth =
+    config?.enabled && isPayPeriod(month)
+      ? getPayPeriodLabel(month, config, false)
+      : monthUtils.format(month, "MMMM ''yy", locale);
 
   return (
     <View
@@ -118,6 +124,7 @@ export function BudgetSummary({ month }: BudgetSummaryProps) {
           </View>
 
           <div
+            data-testid="budget-month-header"
             className={css({
               textAlign: 'center',
               marginTop: 3,
@@ -126,7 +133,9 @@ export function BudgetSummary({ month }: BudgetSummaryProps) {
               textDecorationSkip: 'ink',
             })}
           >
-            {monthUtils.format(month, 'MMMM', locale)}
+            {config?.enabled && isPayPeriod(month)
+              ? getPayPeriodLabel(month, config, true)
+              : monthUtils.format(month, 'MMMM', locale)}
           </div>
 
           <View
