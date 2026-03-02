@@ -1,6 +1,6 @@
 // @ts-strict-ignore
 import * as monthUtils from '../../shared/months';
-import { addPayPeriods, generatePayPeriodRange, isPayPeriod } from '../../shared/pay-periods';
+import { addPayPeriods, generatePayPeriodRange, getPayPeriodFromDate, isPayPeriod } from '../../shared/pay-periods';
 import { q } from '../../shared/query';
 import { getChangedValues } from '../../shared/util';
 import type { CategoryGroupEntity } from '../../types/models';
@@ -24,7 +24,17 @@ export function getBudgetRange(
   end: string,
   config?: PayPeriodConfig,
 ) {
-  if (config?.enabled && isPayPeriod(start) && isPayPeriod(end)) {
+  if (config?.enabled) {
+    // Normalize calendar dates/months to pay period IDs
+    if (!isPayPeriod(start)) {
+      const d = new Date(start.length <= 7 ? start + '-01' : start);
+      start = getPayPeriodFromDate(d, config);
+    }
+    if (!isPayPeriod(end)) {
+      const d = new Date(end.length <= 7 ? end + '-01' : end);
+      end = getPayPeriodFromDate(d, config);
+    }
+
     // Period-aware buffer: 3 periods before, 12 periods after
     if (start > end) {
       start = end;
