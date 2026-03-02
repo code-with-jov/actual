@@ -7,6 +7,7 @@ import { View } from '@actual-app/components/view';
 
 import { send } from 'loot-core/platform/client/connection';
 import * as monthUtils from 'loot-core/shared/months';
+import { isPayPeriod } from 'loot-core/shared/pay-periods';
 import type {
   CategoryEntity,
   CategoryGroupEntity,
@@ -148,20 +149,35 @@ export function Budget() {
   };
 
   const onShowActivity = (categoryId, month) => {
-    const filterConditions = [
-      { field: 'category', op: 'is', value: categoryId, type: 'id' },
-      {
-        field: 'date',
-        op: 'is',
-        value: month,
-        options: { month: true },
-        type: 'date',
-      },
-    ];
+    let dateFilters;
+    if (isPayPeriod(month)) {
+      const { start, end } = monthUtils.bounds(month, payPeriodConfig);
+      const toDateStr = (n: number) => {
+        const s = String(n);
+        return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+      };
+      dateFilters = [
+        { field: 'date', op: 'gte', value: toDateStr(start), type: 'date' },
+        { field: 'date', op: 'lte', value: toDateStr(end), type: 'date' },
+      ];
+    } else {
+      dateFilters = [
+        {
+          field: 'date',
+          op: 'is',
+          value: month,
+          options: { month: true },
+          type: 'date',
+        },
+      ];
+    }
     void navigate('/accounts', {
       state: {
         goBack: true,
-        filterConditions,
+        filterConditions: [
+          { field: 'category', op: 'is', value: categoryId, type: 'id' },
+          ...dateFilters,
+        ],
         categoryId,
       },
     });

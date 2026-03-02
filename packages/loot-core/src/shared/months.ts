@@ -244,7 +244,10 @@ export function differenceInCalendarDays(
   return d.differenceInCalendarDays(_parse(month1), _parse(month2));
 }
 
-export function subMonths(month: string | Date, n: number) {
+export function subMonths(month: string | Date, n: number, config?: PayPeriodConfig): string {
+  if (config && isPayPeriod(String(month))) {
+    return addPayPeriods(String(month), -n, config);
+  }
   return d.format(d.subMonths(_parse(month), n), 'yyyy-MM');
 }
 

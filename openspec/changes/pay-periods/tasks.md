@@ -25,6 +25,7 @@
 - [x] 3.3 Modify `prevMonth(month, config?)` — dispatch to `prevPayPeriod` when `isPayPeriod(month)` and config provided
 - [x] 3.4 Modify `nextMonth(month, config?)` — dispatch to `nextPayPeriod` when `isPayPeriod(month)` and config provided
 - [x] 3.5 Modify `addMonths(month, n, config?)` — dispatch to `addPayPeriods` when `isPayPeriod(month)` and config provided
+- [x] 3.5a Modify `subMonths(month, n, config?)` — dispatch to `addPayPeriods(month, -n, config)` when `isPayPeriod(month)` and config provided (symmetric counterpart to `addMonths`; was absent from the original list)
 - [x] 3.6 Modify `monthFromDate(date, config?)` — return `getPayPeriodFromDate(date, config)` when `config?.enabled` is true
 - [x] 3.7 Modify `currentMonth(config?)` — return `getCurrentPayPeriod(new Date(), config)` when `config?.enabled` is true
 - [x] 3.8 Modify `rangeInclusive(start, end, config?)` — enumerate period IDs via `generatePayPeriodRange` when both IDs are pay periods; throw on mixed calendar+period inputs
@@ -78,6 +79,13 @@
 - [x] 9.1 Update `MonthPicker` / period picker component to display pay period labels using `getPayPeriodLabel` when config is active
 - [x] 9.2 Update budget column header to display short period label (`PP 1`) when in pay period mode
 - [x] 9.3 Update budget summary (income, spent, to-budget) to scope totals to the pay period date range when enabled
+- [x] 9.4 Fix `BudgetSummaries.tsx` — add `usePayPeriodConfig()` and pass config to the `subMonths`/`addMonths` calls that compute surrounding animation slots (before first and after last visible period)
+- [x] 9.6 Fix `onShowActivity` in `budget/index.tsx` — when `month` is a pay period ID, resolve it to a date range via `bounds(month, payPeriodConfig)` and emit `{ field: 'date', op: 'gte', value: startDate }` + `{ field: 'date', op: 'lte', value: endDate }` instead of the month-equality condition; this prevents pay period IDs from reaching `Value.tsx`/`subfieldFromFilter` which have no concept of pay periods
+- [x] 9.5 Fix `DynamicBudgetTable.tsx` — add `usePayPeriodConfig()` and pass config to:
+  - `getValidMonth`: `subMonths(monthBounds.end, numMonths - 1, config)`
+  - `←` hotkey: `prevMonth(startMonth, config)`
+  - `→` hotkey: `nextMonth(startMonth, config)`
+  - `0` hotkey: `currentMonth(config)` and `subMonths(…, config)` for centering on current period
 
 ## 10. Frontend: Settings UI
 

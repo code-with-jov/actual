@@ -143,7 +143,7 @@ When `_parse` is called with a pay period ID (MM ≥ 13) and no `config` is prov
 ### Requirement: `months.ts` functions accept optional pay period config
 The following `months.ts` functions SHALL accept an optional `config?: PayPeriodConfig` parameter. When a pay period ID is detected in the input AND `config` is provided, the function SHALL use period-aware logic. When `config` is absent and a pay period ID is detected, the function SHALL throw a descriptive error.
 
-Affected functions: `bounds`, `prevMonth`, `nextMonth`, `addMonths`, `monthFromDate`, `currentMonth`, `rangeInclusive`, `nameForMonth`, `isBefore`, `isAfter`.
+Affected functions: `bounds`, `prevMonth`, `nextMonth`, `addMonths`, `subMonths`, `monthFromDate`, `currentMonth`, `rangeInclusive`, `nameForMonth`, `isBefore`, `isAfter`.
 
 #### Scenario: `bounds` returns correct date range for a pay period
 - **WHEN** `bounds('2024-13', config)` is called and period `2024-13` runs Jan 5–18
@@ -172,6 +172,16 @@ Affected functions: `bounds`, `prevMonth`, `nextMonth`, `addMonths`, `monthFromD
 #### Scenario: `currentMonth` returns period ID when enabled
 - **WHEN** `config.enabled` is `true` and `currentMonth(config)` is called
 - **THEN** it returns the period ID containing today's date
+
+#### Scenario: `subMonths` navigates backward by n pay periods
+- **WHEN** `subMonths('2024-16', 2, config)` is called
+- **THEN** it returns `'2024-14'`
+
+#### Scenario: `subMonths` crossing year boundary
+- **WHEN** `subMonths('2025-13', 1, config)` is called with biweekly config (26 periods/year)
+- **THEN** it returns `'2024-38'`
+
+---
 
 #### Scenario: `rangeInclusive` enumerates period IDs between two period IDs
 - **WHEN** `rangeInclusive('2024-13', '2024-16', config)` is called with biweekly config
