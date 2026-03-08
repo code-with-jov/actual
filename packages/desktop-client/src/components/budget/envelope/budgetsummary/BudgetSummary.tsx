@@ -14,11 +14,13 @@ import { View } from '@actual-app/components/view';
 import { css } from '@emotion/css';
 
 import * as monthUtils from 'loot-core/shared/months';
+import { isPayPeriod, getPayPeriodLabel } from 'loot-core/shared/pay-periods';
 
 import { BudgetMonthMenu } from './BudgetMonthMenu';
 import { ToBudget } from './ToBudget';
 import { TotalsList } from './TotalsList';
 
+import { usePayPeriodConfig } from '@desktop-client/components/budget/PayPeriodContext';
 import { useEnvelopeBudget } from '@desktop-client/components/budget/envelope/EnvelopeBudgetContext';
 import { NotesButton } from '@desktop-client/components/NotesButton';
 import { useLocale } from '@desktop-client/hooks/useLocale';
@@ -30,6 +32,7 @@ type BudgetSummaryProps = {
 };
 export const BudgetSummary = memo(({ month }: BudgetSummaryProps) => {
   const locale = useLocale();
+  const config = usePayPeriodConfig();
   const {
     currentMonth,
     summaryCollapsed: collapsed,
@@ -49,17 +52,14 @@ export const BudgetSummary = memo(({ month }: BudgetSummaryProps) => {
     setMenuOpen(false);
   }
 
-  const prevMonthName = monthUtils.format(
-    monthUtils.prevMonth(month),
-    'MMM',
-    locale,
-  );
+  const prevMonth = monthUtils.prevMonth(month, config);
+  const prevMonthName = monthUtils.nameForMonth(prevMonth, locale, config, true);
 
   const ExpandOrCollapseIcon = collapsed
     ? SvgArrowButtonDown1
     : SvgArrowButtonUp1;
 
-  const displayMonth = monthUtils.format(month, "MMMM ''yy", locale);
+  const displayMonth = monthUtils.nameForMonth(month, locale, config);
   const { t } = useTranslation();
 
   return (
@@ -122,6 +122,7 @@ export const BudgetSummary = memo(({ month }: BudgetSummaryProps) => {
           </View>
 
           <div
+            data-testid="budget-month-header"
             className={css([
               {
                 textAlign: 'center',
@@ -133,7 +134,9 @@ export const BudgetSummary = memo(({ month }: BudgetSummaryProps) => {
               currentMonth === month && { fontWeight: 'bold' },
             ])}
           >
-            {monthUtils.format(month, 'MMMM', locale)}
+            {config && isPayPeriod(month)
+              ? getPayPeriodLabel(month, config, true)
+              : monthUtils.format(month, 'MMMM', locale)}
           </div>
 
           <View

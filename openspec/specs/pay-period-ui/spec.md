@@ -1,15 +1,23 @@
-## ADDED Requirements
+# Spec: Pay Period UI
+
+## Purpose
+
+Defines the user-facing pay period experience in the budget page: the React context/hook that propagates pay period config, period-aware navigation, display name formatting, settings configuration, column layout, component-level config consumption, drill-through filtering, and summary totals scoped to pay period boundaries.
+
+---
+
+## Requirements
 
 ### Requirement: Pay period context provider
-The `BudgetPage` component SHALL read `showPayPeriods`, `payPeriodFrequency`, and `payPeriodStartDate` from synced preferences and provide a `PayPeriodContext` containing the resolved `PayPeriodConfig` (or `null` when disabled/unconfigured) to all child budget components. Child components SHALL consume this via a `usePayPeriodConfig()` hook.
+The `BudgetPage` component SHALL read `showPayPeriods`, `payPeriodFrequency`, and `payPeriodStartDate` from synced preferences and provide a `PayPeriodContext` containing the resolved `PayPeriodConfig` (or `undefined` when disabled/unconfigured) to all child budget components. Child components SHALL consume this via a `usePayPeriodConfig()` hook.
 
 #### Scenario: Context is provided when pay periods are enabled
 - **WHEN** `showPayPeriods` is `'true'` and frequency and start date are configured
 - **THEN** `usePayPeriodConfig()` returns a `PayPeriodConfig` with `enabled: true` in any child budget component
 
-#### Scenario: Context is null when pay periods are disabled
+#### Scenario: Context is undefined when pay periods are disabled
 - **WHEN** `showPayPeriods` is `'false'` or the feature flag is off
-- **THEN** `usePayPeriodConfig()` returns `null`
+- **THEN** `usePayPeriodConfig()` returns `undefined`
 
 #### Scenario: Context updates when preferences change
 - **WHEN** the user changes `payPeriodFrequency` in settings and saves
@@ -91,6 +99,37 @@ The budget page's column layout SHALL display the correct number of period colum
 #### Scenario: Multiple period columns displayed
 - **WHEN** `maxMonths` is 3 and pay periods are enabled
 - **THEN** three consecutive period columns are shown
+
+---
+
+### Requirement: Internal budget components must consume PayPeriodConfig from context
+Any budget component that calls `months.ts` navigation functions (`subMonths`, `addMonths`, `prevMonth`, `nextMonth`, etc.) with values that may be pay period IDs SHALL obtain `PayPeriodConfig` via `usePayPeriodConfig()` and pass it to those calls. Components MUST NOT call these functions with a pay period ID and no config.
+
+#### Scenario: BudgetSummaries uses config when computing surrounding periods
+- **WHEN** pay periods are enabled and `BudgetSummaries` computes the period immediately before and after the visible range
+- **THEN** it calls `subMonths` and `addMonths` with the `PayPeriodConfig` obtained from context, producing valid adjacent period IDs
+
+#### Scenario: No crash when config is absent (calendar months)
+- **WHEN** pay periods are disabled and `BudgetSummaries` computes surrounding months
+- **THEN** it calls `subMonths` and `addMonths` without a config (or with `null`/`undefined`), and standard calendar-month behavior is used
+
+---
+
+### Requirement: Drill-through to transactions uses date-range filter for pay periods
+When the user clicks a budget cell amount (Spent, Income, etc.) while in pay period mode, the transaction list filter SHALL use a date-range condition covering the period's actual start and end dates, NOT a month-equality condition containing the pay period ID. This ensures:
+1. The filter query finds the correct transactions (period boundaries, not calendar month).
+2. The filter display layer (`Value.tsx`, `subfieldFromFilter`) never receives a pay period ID — it only sees `yyyy-MM-dd` date strings it already understands.
+
+The date range SHALL be derived from `bounds(periodId, config)` converted to `yyyy-MM-dd` strings and expressed as two conditions: `{ field: 'date', op: 'gte', value: startDate }` and `{ field: 'date', op: 'lte', value: endDate }`. When pay periods are disabled, the existing `{ field: 'date', op: 'is', value: month, options: { month: true } }` condition is used unchanged.
+
+#### Scenario: Clicking Spent on a pay period navigates to correctly filtered transactions
+- **WHEN** pay periods are enabled and the user clicks "Spent" for a category in period `2024-13` (Jan 5–18)
+- **THEN** the transaction list is filtered with `date >= '2024-01-05' AND date <= '2024-01-18'`
+- **AND** no pay period ID string is passed to `Value.tsx` or `subfieldFromFilter`
+
+#### Scenario: Clicking Spent in calendar month mode is unchanged
+- **WHEN** pay periods are disabled and the user clicks "Spent" for a category in month `2024-01`
+- **THEN** the transaction list is filtered with the existing `{ op: 'is', value: '2024-01', options: { month: true } }` condition
 
 ---
 
