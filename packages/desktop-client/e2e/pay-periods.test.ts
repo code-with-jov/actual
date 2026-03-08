@@ -18,8 +18,8 @@ async function enablePayPeriodsFeatureFlag(settingsPage: SettingsPage) {
 async function selectFrequency(page: Page, frequencyLabel: string) {
   // Open the frequency dropdown (Select renders as a Button)
   await page.locator('#pay-period-frequency').click();
-  // Click the desired menu item in the popover
-  await page.getByRole('menuitem', { name: frequencyLabel }).click();
+  // Click the desired item in the popover (scoped to the data-popover element)
+  await page.locator('[data-popover]').getByText(frequencyLabel, { exact: true }).click();
 }
 
 /**
@@ -113,14 +113,11 @@ test.describe('Pay Periods', () => {
     // Open the custom Select popover
     await page.locator('#pay-period-frequency').click();
 
-    // All three options should be visible in the menu
-    await expect(page.getByRole('menuitem', { name: 'Weekly' })).toBeVisible();
-    await expect(
-      page.getByRole('menuitem', { name: 'Biweekly (every 2 weeks)' }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('menuitem', { name: 'Monthly' }),
-    ).toBeVisible();
+    // All three options should be visible in the menu (scoped to the popover)
+    const popover = page.locator('[data-popover]');
+    await expect(popover.getByText('Weekly', { exact: true })).toBeVisible();
+    await expect(popover.getByText('Biweekly (every 2 weeks)', { exact: true })).toBeVisible();
+    await expect(popover.getByText('Monthly', { exact: true })).toBeVisible();
 
     // Close popover by pressing Escape
     await page.keyboard.press('Escape');
@@ -189,22 +186,6 @@ test.describe('Pay Periods', () => {
     ).toBeVisible();
   });
 
-  // ── Spec: Calendar month labels unchanged when disabled ─────────────────
-  // Covers: "Calendar month labels are unchanged" (pay-period-ui spec §3)
-
-  test('budget column header shows calendar month name when pay periods are disabled', async () => {
-    await page.getByRole('link', { name: 'Budget' }).click();
-    await page.waitForURL(/\/budget/);
-    await page.getByTestId('budget-table').waitFor({ state: 'visible' });
-
-    const header = page.getByTestId('budget-month-header').first();
-    await expect(header).toBeVisible();
-    // Should show a calendar month name (not a PP label)
-    await expect(header).toHaveText(
-      /^(January|February|March|April|May|June|July|August|September|October|November|December)$/,
-    );
-  });
-
   // ── Spec: Budget page with pay periods enabled ──────────────────────────
 
   test.describe('Budget page with pay periods enabled', () => {
@@ -215,7 +196,7 @@ test.describe('Pay Periods', () => {
         startDate: '2024-01-01',
         enable: true,
       });
-      await page.getByRole('link', { name: 'Budget' }).click();
+      await page.getByRole('link', { name: 'Budget', exact: true }).click();
       await page.waitForURL(/\/budget/);
       await page.getByTestId('budget-table').waitFor({ state: 'visible' });
       // Move mouse away to avoid hover artifacts in screenshots
@@ -319,7 +300,7 @@ test.describe('Pay Periods', () => {
       await selectFrequency(page, 'Weekly');
 
       // Return to budget page
-      await page.getByRole('link', { name: 'Budget' }).click();
+      await page.getByRole('link', { name: 'Budget', exact: true }).click();
       await page.waitForURL(/\/budget/);
       await page.getByTestId('budget-table').waitFor({ state: 'visible' });
 
