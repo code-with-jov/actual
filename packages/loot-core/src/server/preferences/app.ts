@@ -57,7 +57,8 @@ export async function loadPayPeriodConfig(): Promise<PayPeriodConfig> {
   }
 
   const enabled = map['showPayPeriods'] === 'true';
-  const payFrequency = (map['payPeriodFrequency'] as PayPeriodConfig['payFrequency']) ?? 'monthly';
+  const payFrequency =
+    (map['payPeriodFrequency'] as PayPeriodConfig['payFrequency']) ?? 'monthly';
   const startDate = map['payPeriodStartDate'] ?? '';
 
   return { enabled, payFrequency, startDate };

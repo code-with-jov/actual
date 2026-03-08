@@ -1,6 +1,11 @@
 // @ts-strict-ignore
 import * as monthUtils from '../../shared/months';
-import { addPayPeriods, generatePayPeriodRange, getPayPeriodFromDate, isPayPeriod } from '../../shared/pay-periods';
+import {
+  addPayPeriods,
+  generatePayPeriodRange,
+  getPayPeriodFromDate,
+  isPayPeriod,
+} from '../../shared/pay-periods';
 import { q } from '../../shared/query';
 import { getChangedValues } from '../../shared/util';
 import type { CategoryGroupEntity } from '../../types/models';
@@ -117,7 +122,11 @@ function handleAccountChange(months, oldValue, newValue) {
   }
 }
 
-function handleTransactionChange(transaction, changedFields, config?: PayPeriodConfig) {
+function handleTransactionChange(
+  transaction,
+  changedFields,
+  config?: PayPeriodConfig,
+) {
   if (
     (changedFields.has('date') ||
       changedFields.has('acct') ||
@@ -128,7 +137,10 @@ function handleTransactionChange(transaction, changedFields, config?: PayPeriodC
     transaction.date &&
     transaction.category
   ) {
-    const month = monthUtils.monthFromDate(db.fromDateRepr(transaction.date), config);
+    const month = monthUtils.monthFromDate(
+      db.fromDateRepr(transaction.date),
+      config,
+    );
     const sheetName = monthUtils.sheetForMonth(month);
 
     sheet

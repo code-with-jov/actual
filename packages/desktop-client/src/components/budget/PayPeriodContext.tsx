@@ -10,7 +10,10 @@ type PayPeriodProviderProps = {
   children: ReactNode;
 };
 
-export function PayPeriodProvider({ config, children }: PayPeriodProviderProps) {
+export function PayPeriodProvider({
+  config,
+  children,
+}: PayPeriodProviderProps) {
   return (
     <PayPeriodContext.Provider value={config}>
       {children}

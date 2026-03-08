@@ -10,11 +10,13 @@ The MonthPicker uses the short format; BudgetSummary uses the long format. Both 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - MonthPicker label → `{monthLetter}{withinMonthCount}` (e.g., `J1`, `J2`, `F1`)
 - BudgetSummary label → `{startDate} - {endDate} (PP{globalN})` (e.g., `Jan 5 - Jan 18 (PP1)`)
 - Localisation-safe: month letter derived from the locale's month name first character
 
 **Non-Goals:**
+
 - Changing any data model, period ID format, or navigation logic
 - Disambiguating months that share a first letter (J=Jan/Jun/Jul, M=Mar/May, A=Apr/Aug) — accepted trade-off in favour of compactness; sequential context in the picker makes this workable
 - Supporting a separate "per-month count" in the BudgetSummary (it shows the global number)

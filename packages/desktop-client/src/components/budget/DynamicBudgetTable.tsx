@@ -67,7 +67,11 @@ const DynamicBudgetTable = ({
 
   function getValidMonth(month) {
     const start = monthBounds.start;
-    const end = monthUtils.subMonths(monthBounds.end, numMonths - 1, payPeriodConfig);
+    const end = monthUtils.subMonths(
+      monthBounds.end,
+      numMonths - 1,
+      payPeriodConfig,
+    );
 
     if (month < start) {
       return start;

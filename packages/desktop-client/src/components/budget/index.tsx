@@ -51,7 +51,12 @@ export function Budget() {
         (payPeriodFrequency as 'weekly' | 'biweekly' | 'monthly') ?? 'monthly',
       startDate: payPeriodStartDate ?? '',
     }),
-    [isPayPeriodsEnabled, showPayPeriods, payPeriodFrequency, payPeriodStartDate],
+    [
+      isPayPeriodsEnabled,
+      showPayPeriods,
+      payPeriodFrequency,
+      payPeriodStartDate,
+    ],
   );
 
   const currentMonth = monthUtils.currentMonth(payPeriodConfig);
@@ -267,7 +272,9 @@ export function Budget() {
   }
 
   return (
-    <PayPeriodProvider config={payPeriodConfig.enabled ? payPeriodConfig : undefined}>
+    <PayPeriodProvider
+      config={payPeriodConfig.enabled ? payPeriodConfig : undefined}
+    >
       <SheetNameProvider name={monthUtils.sheetForMonth(startMonth)}>
         {/*
           In a previous iteration, the wrapper needs `overflow: hidden` for
