@@ -67,8 +67,9 @@ describe('generatePayPeriods', () => {
   test('biweekly: each period is exactly 14 days', () => {
     const periods = generatePayPeriods(2024, biweeklyConfig);
     for (const p of periods) {
-      const start = new Date(p.startDate + 'T12:00:00');
-      const end = new Date(p.endDate + 'T12:00:00');
+      // Use UTC to avoid DST-related hour shifts
+      const start = new Date(p.startDate + 'T00:00:00Z');
+      const end = new Date(p.endDate + 'T00:00:00Z');
       const diffMs = end.getTime() - start.getTime();
       const diffDays = diffMs / (1000 * 60 * 60 * 24);
       expect(diffDays).toBe(13); // 14-day period, end - start = 13 days
