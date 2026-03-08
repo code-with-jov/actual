@@ -14,14 +14,14 @@ import { View } from '@actual-app/components/view';
 import { css } from '@emotion/css';
 
 import * as monthUtils from 'loot-core/shared/months';
-import { isPayPeriod, getPayPeriodLabel } from 'loot-core/shared/pay-periods';
+import { getPayPeriodLabel, isPayPeriod } from 'loot-core/shared/pay-periods';
 
 import { BudgetMonthMenu } from './BudgetMonthMenu';
 import { ToBudget } from './ToBudget';
 import { TotalsList } from './TotalsList';
 
-import { usePayPeriodConfig } from '@desktop-client/components/budget/PayPeriodContext';
 import { useEnvelopeBudget } from '@desktop-client/components/budget/envelope/EnvelopeBudgetContext';
+import { usePayPeriodConfig } from '@desktop-client/components/budget/PayPeriodContext';
 import { NotesButton } from '@desktop-client/components/NotesButton';
 import { useLocale } from '@desktop-client/hooks/useLocale';
 import { SheetNameProvider } from '@desktop-client/hooks/useSheetName';
@@ -53,7 +53,12 @@ export const BudgetSummary = memo(({ month }: BudgetSummaryProps) => {
   }
 
   const prevMonth = monthUtils.prevMonth(month, config);
-  const prevMonthName = monthUtils.nameForMonth(prevMonth, locale, config, true);
+  const prevMonthName = monthUtils.nameForMonth(
+    prevMonth,
+    locale,
+    config,
+    true,
+  );
 
   const ExpandOrCollapseIcon = collapsed
     ? SvgArrowButtonDown1
@@ -135,7 +140,7 @@ export const BudgetSummary = memo(({ month }: BudgetSummaryProps) => {
             ])}
           >
             {config && isPayPeriod(month)
-              ? getPayPeriodLabel(month, config, true)
+              ? getPayPeriodLabel(month, config, 'summary', locale)
               : monthUtils.format(month, 'MMMM', locale)}
           </div>
 

@@ -1,16 +1,17 @@
+import type { PayPeriodConfig } from '../types/prefs';
+
+import * as monthUtils from './months';
 import {
-  isPayPeriod,
-  generatePayPeriods,
-  getPayPeriodFromDate,
-  getCurrentPayPeriod,
-  nextPayPeriod,
-  prevPayPeriod,
   addPayPeriods,
   generatePayPeriodRange,
+  generatePayPeriods,
+  getCurrentPayPeriod,
+  getPayPeriodFromDate,
   getPayPeriodLabel,
+  isPayPeriod,
+  nextPayPeriod,
+  prevPayPeriod,
 } from './pay-periods';
-import * as monthUtils from './months';
-import type { PayPeriodConfig } from '../types/prefs';
 
 const biweeklyConfig: PayPeriodConfig = {
   enabled: true,
@@ -245,9 +246,7 @@ describe('period navigation', () => {
 
 describe('_parse with pay period IDs', () => {
   test('throws when called with pay period ID and no config', () => {
-    expect(() => monthUtils._parse('2024-13')).toThrow(
-      /pay period.*config/i,
-    );
+    expect(() => monthUtils._parse('2024-13')).toThrow(/pay period.*config/i);
   });
 
   test('returns period start date when called with config', () => {
@@ -326,7 +325,11 @@ describe('monthFromDate and currentMonth', () => {
 
 describe('rangeInclusive', () => {
   test('period range from 2024-13 to 2024-16', () => {
-    const result = monthUtils.rangeInclusive('2024-13', '2024-16', biweeklyConfig);
+    const result = monthUtils.rangeInclusive(
+      '2024-13',
+      '2024-16',
+      biweeklyConfig,
+    );
     expect(result).toEqual(['2024-13', '2024-14', '2024-15', '2024-16']);
   });
 
@@ -342,7 +345,11 @@ describe('rangeInclusive', () => {
   });
 
   test('single period range returns one element', () => {
-    const result = monthUtils.rangeInclusive('2024-15', '2024-15', biweeklyConfig);
+    const result = monthUtils.rangeInclusive(
+      '2024-15',
+      '2024-15',
+      biweeklyConfig,
+    );
     expect(result).toEqual(['2024-15']);
   });
 });
@@ -361,15 +368,21 @@ describe('subMonths with pay period IDs', () => {
 
 describe('isBefore and isAfter with pay period IDs', () => {
   test('isBefore returns true for earlier period', () => {
-    expect(monthUtils.isBefore('2024-14', '2024-15', biweeklyConfig)).toBe(true);
+    expect(monthUtils.isBefore('2024-14', '2024-15', biweeklyConfig)).toBe(
+      true,
+    );
   });
 
   test('isBefore returns false for later period', () => {
-    expect(monthUtils.isBefore('2024-15', '2024-14', biweeklyConfig)).toBe(false);
+    expect(monthUtils.isBefore('2024-15', '2024-14', biweeklyConfig)).toBe(
+      false,
+    );
   });
 
   test('isBefore across year boundary', () => {
-    expect(monthUtils.isBefore('2024-38', '2025-13', biweeklyConfig)).toBe(true);
+    expect(monthUtils.isBefore('2024-38', '2025-13', biweeklyConfig)).toBe(
+      true,
+    );
   });
 
   test('isAfter returns true for later period', () => {
@@ -382,13 +395,21 @@ describe('isBefore and isAfter with pay period IDs', () => {
 });
 
 describe('nameForMonth with pay period IDs', () => {
-  test('returns short label via months.ts wrapper', () => {
-    expect(monthUtils.nameForMonth('2024-13', undefined, biweeklyConfig, true)).toBe('PP 1');
+  test('returns picker label via months.ts wrapper (short=true)', () => {
+    expect(
+      monthUtils.nameForMonth('2024-13', undefined, biweeklyConfig, true),
+    ).toBe('J1');
   });
 
-  test('returns long label via months.ts wrapper', () => {
-    const label = monthUtils.nameForMonth('2024-14', undefined, biweeklyConfig, false);
-    expect(label).toMatch(/^Pay Period 2 \(/);
+  test('returns summary label via months.ts wrapper (short=false)', () => {
+    const label = monthUtils.nameForMonth(
+      '2024-14',
+      undefined,
+      biweeklyConfig,
+      false,
+    );
+    // Jan 18 - Jan 31 (PP2)
+    expect(label).toMatch(/^Jan 18 - Jan 31 \(PP2\)$/);
   });
 
   test('calendar month label unchanged (no config)', () => {
@@ -401,14 +422,52 @@ describe('nameForMonth with pay period IDs', () => {
 // ── getPayPeriodLabel ─────────────────────────────────────────────────────────
 
 describe('getPayPeriodLabel', () => {
-  test('short format returns PP N', () => {
-    expect(getPayPeriodLabel('2024-13', biweeklyConfig, true)).toBe('PP 1');
-    expect(getPayPeriodLabel('2024-14', biweeklyConfig, true)).toBe('PP 2');
+  test('picker format: first period of January returns J1', () => {
+    // 2024-13 starts Jan 4 (biweeklyConfig startDate 2024-09-26)
+    expect(getPayPeriodLabel('2024-13', biweeklyConfig, 'picker')).toBe('J1');
   });
 
-  test('long format includes date range', () => {
-    const label = getPayPeriodLabel('2024-13', biweeklyConfig, false);
-    expect(label).toMatch(/^Pay Period 1 \(/);
-    expect(label).toMatch(/–/); // en-dash separator
+  test('picker format: second period of January returns J2', () => {
+    // 2024-14 starts Jan 18
+    expect(getPayPeriodLabel('2024-14', biweeklyConfig, 'picker')).toBe('J2');
+  });
+
+  test('picker format: first period of February returns F1', () => {
+    // 2024-15 starts Feb 1
+    expect(getPayPeriodLabel('2024-15', biweeklyConfig, 'picker')).toBe('F1');
+  });
+
+  test('picker format: uses start month even when period spans two calendar months', () => {
+    // 2024-14 starts Jan 18 and ends Jan 31 — entirely in January
+    // 2024-15 starts Feb 1 — so J2 is the last January period
+    // Test a period that spans month boundary: 2024-13 starts Jan 4, ends Jan 17
+    // Any period ending in the next month still uses its start month
+    // Feb periods start in Feb so they get F letter
+    expect(getPayPeriodLabel('2024-15', biweeklyConfig, 'picker')).toBe('F1');
+  });
+
+  test('picker format: monthly frequency always returns {L}1 (one period per month)', () => {
+    // Monthly: one period per month, so withinMonthCount is always 1
+    expect(getPayPeriodLabel('2024-13', monthlyConfig, 'picker')).toBe('J1');
+    expect(getPayPeriodLabel('2024-14', monthlyConfig, 'picker')).toBe('F1');
+    expect(getPayPeriodLabel('2024-15', monthlyConfig, 'picker')).toBe('M1');
+  });
+
+  test('summary format: includes date range and global period number', () => {
+    // 2024-13 (biweekly): Jan 4 - Jan 17, period 1
+    const label = getPayPeriodLabel('2024-13', biweeklyConfig, 'summary');
+    expect(label).toBe('Jan 4 - Jan 17 (PP1)');
+  });
+
+  test('summary format: period spanning two months', () => {
+    // 2024-15 starts Feb 1, ends Feb 14, is PP3
+    const label = getPayPeriodLabel('2024-15', biweeklyConfig, 'summary');
+    expect(label).toBe('Feb 1 - Feb 14 (PP3)');
+  });
+
+  test('summary format: uses hyphen separator (not en-dash)', () => {
+    const label = getPayPeriodLabel('2024-13', biweeklyConfig, 'summary');
+    expect(label).toContain(' - ');
+    expect(label).not.toMatch(/–/); // no en-dash
   });
 });
