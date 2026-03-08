@@ -62,7 +62,7 @@
 
 ## 7. Frontend: Context and Hook
 
-- [x] 7.1 Create `PayPeriodContext` and `PayPeriodProvider` in `desktop-client/src/contexts/PayPeriodContext.tsx`
+- [x] 7.1 Create `PayPeriodContext` and `PayPeriodProvider` in `desktop-client/src/components/budget/PayPeriodContext.tsx` (co-located with `MonthsContext.tsx` and `BudgetMonthCountContext.tsx` per project convention)
 - [x] 7.2 Create `usePayPeriodConfig()` hook that reads from `PayPeriodContext`
 - [x] 7.3 In `budget/index.tsx`: read `showPayPeriods`, `payPeriodFrequency`, `payPeriodStartDate` via `useSyncedPref`; read `payPeriodsEnabled` via `useFeatureFlag`; construct `PayPeriodConfig`; wrap children in `PayPeriodProvider`
 

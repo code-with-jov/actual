@@ -347,6 +347,57 @@ describe('rangeInclusive', () => {
   });
 });
 
+// ── subMonths, isBefore, isAfter with pay period IDs ─────────────────────────
+
+describe('subMonths with pay period IDs', () => {
+  test('subMonths within a year', () => {
+    expect(monthUtils.subMonths('2024-16', 2, biweeklyConfig)).toBe('2024-14');
+  });
+
+  test('subMonths crossing year boundary', () => {
+    expect(monthUtils.subMonths('2025-13', 1, biweeklyConfig)).toBe('2024-38');
+  });
+});
+
+describe('isBefore and isAfter with pay period IDs', () => {
+  test('isBefore returns true for earlier period', () => {
+    expect(monthUtils.isBefore('2024-14', '2024-15', biweeklyConfig)).toBe(true);
+  });
+
+  test('isBefore returns false for later period', () => {
+    expect(monthUtils.isBefore('2024-15', '2024-14', biweeklyConfig)).toBe(false);
+  });
+
+  test('isBefore across year boundary', () => {
+    expect(monthUtils.isBefore('2024-38', '2025-13', biweeklyConfig)).toBe(true);
+  });
+
+  test('isAfter returns true for later period', () => {
+    expect(monthUtils.isAfter('2025-13', '2024-38', biweeklyConfig)).toBe(true);
+  });
+
+  test('isBefore calendar months unchanged', () => {
+    expect(monthUtils.isBefore('2024-01', '2024-03')).toBe(true);
+  });
+});
+
+describe('nameForMonth with pay period IDs', () => {
+  test('returns short label via months.ts wrapper', () => {
+    expect(monthUtils.nameForMonth('2024-13', undefined, biweeklyConfig, true)).toBe('PP 1');
+  });
+
+  test('returns long label via months.ts wrapper', () => {
+    const label = monthUtils.nameForMonth('2024-14', undefined, biweeklyConfig, false);
+    expect(label).toMatch(/^Pay Period 2 \(/);
+  });
+
+  test('calendar month label unchanged (no config)', () => {
+    const label = monthUtils.nameForMonth('2024-03');
+    expect(label).toMatch(/March/);
+    expect(label).not.toMatch(/^PP/);
+  });
+});
+
 // ── getPayPeriodLabel ─────────────────────────────────────────────────────────
 
 describe('getPayPeriodLabel', () => {

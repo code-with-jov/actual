@@ -1,15 +1,23 @@
-## ADDED Requirements
+# Spec: Pay Period UI
+
+## Purpose
+
+Defines the user-facing pay period experience in the budget page: the React context/hook that propagates pay period config, period-aware navigation, display name formatting, settings configuration, column layout, component-level config consumption, drill-through filtering, and summary totals scoped to pay period boundaries.
+
+---
+
+## Requirements
 
 ### Requirement: Pay period context provider
-The `BudgetPage` component SHALL read `showPayPeriods`, `payPeriodFrequency`, and `payPeriodStartDate` from synced preferences and provide a `PayPeriodContext` containing the resolved `PayPeriodConfig` (or `null` when disabled/unconfigured) to all child budget components. Child components SHALL consume this via a `usePayPeriodConfig()` hook.
+The `BudgetPage` component SHALL read `showPayPeriods`, `payPeriodFrequency`, and `payPeriodStartDate` from synced preferences and provide a `PayPeriodContext` containing the resolved `PayPeriodConfig` (or `undefined` when disabled/unconfigured) to all child budget components. Child components SHALL consume this via a `usePayPeriodConfig()` hook.
 
 #### Scenario: Context is provided when pay periods are enabled
 - **WHEN** `showPayPeriods` is `'true'` and frequency and start date are configured
 - **THEN** `usePayPeriodConfig()` returns a `PayPeriodConfig` with `enabled: true` in any child budget component
 
-#### Scenario: Context is null when pay periods are disabled
+#### Scenario: Context is undefined when pay periods are disabled
 - **WHEN** `showPayPeriods` is `'false'` or the feature flag is off
-- **THEN** `usePayPeriodConfig()` returns `null`
+- **THEN** `usePayPeriodConfig()` returns `undefined`
 
 #### Scenario: Context updates when preferences change
 - **WHEN** the user changes `payPeriodFrequency` in settings and saves
