@@ -480,11 +480,11 @@ export function sheetForMonth(month: string): string {
   return 'budget' + month.replace('-', '');
 }
 
-export function nameForMonth(month: DateLike, locale?: Locale, config?: PayPeriodConfig): string {
+export function nameForMonth(month: DateLike, locale?: Locale, config?: PayPeriodConfig, short = false): string {
   if (config && isPayPeriod(String(month))) {
-    return getPayPeriodLabel(String(month), config, false);
+    return getPayPeriodLabel(String(month), config, short);
   }
-  return d.format(_parse(month), "MMMM ''yy", { locale });
+  return d.format(_parse(month), short ? 'MMM' : "MMMM ''yy", { locale });
 }
 
 export function format(

@@ -60,10 +60,7 @@ export function BudgetSummary({ month }: BudgetSummaryProps) {
     ? SvgArrowButtonDown1
     : SvgArrowButtonUp1;
 
-  const displayMonth =
-    config?.enabled && isPayPeriod(month)
-      ? getPayPeriodLabel(month, config, false)
-      : monthUtils.format(month, "MMMM ''yy", locale);
+  const displayMonth = monthUtils.nameForMonth(month, locale, config);
 
   return (
     <View
@@ -133,7 +130,7 @@ export function BudgetSummary({ month }: BudgetSummaryProps) {
               textDecorationSkip: 'ink',
             })}
           >
-            {config?.enabled && isPayPeriod(month)
+            {config && isPayPeriod(month)
               ? getPayPeriodLabel(month, config, true)
               : monthUtils.format(month, 'MMMM', locale)}
           </div>

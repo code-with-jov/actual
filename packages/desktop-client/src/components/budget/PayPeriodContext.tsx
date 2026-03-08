@@ -6,7 +6,7 @@ import type { PayPeriodConfig } from 'loot-core/types/prefs';
 const PayPeriodContext = createContext<PayPeriodConfig | undefined>(undefined);
 
 type PayPeriodProviderProps = {
-  config: PayPeriodConfig;
+  config: PayPeriodConfig | undefined;
   children: ReactNode;
 };
 

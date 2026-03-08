@@ -267,7 +267,7 @@ export function Budget() {
   }
 
   return (
-    <PayPeriodProvider config={payPeriodConfig}>
+    <PayPeriodProvider config={payPeriodConfig.enabled ? payPeriodConfig : undefined}>
       <SheetNameProvider name={monthUtils.sheetForMonth(startMonth)}>
         {/*
           In a previous iteration, the wrapper needs `overflow: hidden` for

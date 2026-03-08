@@ -13,7 +13,7 @@ import { theme } from '@actual-app/components/theme';
 import { View } from '@actual-app/components/view';
 
 import * as monthUtils from 'loot-core/shared/months';
-import { getPayPeriodLabel, isPayPeriod } from 'loot-core/shared/pay-periods';
+
 
 import type { MonthBounds } from './MonthsContext';
 import { usePayPeriodConfig } from './PayPeriodContext';
@@ -43,7 +43,6 @@ export const MonthPicker = ({
   const [targetMonthCount, setTargetMonthCount] = useState(12);
 
   const config = usePayPeriodConfig();
-  const currentMonth = monthUtils.currentMonth(config);
   const firstSelectedMonth = startMonth;
 
   const lastSelectedMonth = monthUtils.addMonths(
@@ -130,10 +129,7 @@ export const MonthPicker = ({
           </View>
         </Link>
         {range.map((month, idx) => {
-          const monthName =
-            config?.enabled && isPayPeriod(month)
-              ? getPayPeriodLabel(month, config, true)
-              : monthUtils.format(month, 'MMM', locale);
+          const monthName = monthUtils.nameForMonth(month, locale, config, true);
           const selected =
             idx >= firstSelectedIndex && idx <= lastSelectedIndex;
 
