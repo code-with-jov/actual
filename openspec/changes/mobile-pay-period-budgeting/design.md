@@ -58,7 +58,7 @@ When `isPayPeriod(month)` is false (or no config), keep the existing:
 
 **Rationale**: Matches the exact pattern used in the desktop `onShowActivity` (see `index.tsx:156–168`). The `$gte`/`$lte` operators work on the `date` field (stored as YYYYMMDD integers) in the query engine.
 
-**YYYYMMDD-to-string conversion**: `const s = String(n); return \`${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}\``  — same helper as in `index.tsx`.
+**YYYYMMDD-to-string conversion**: `const s = String(n); return \`${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}\`` — same helper as in`index.tsx`.
 
 ### D4: `MonthSelector` receives `payPeriodConfig` as a prop
 
@@ -99,9 +99,10 @@ For calendar months, keep the existing string comparison logic unchanged.
 **Decision**: Apply the same branch as D5 in `CategoryPage`'s header title:
 
 ```typescript
-const periodLabel = isPayPeriod(month) && payPeriodConfig?.enabled
-  ? getPayPeriodLabel(month, payPeriodConfig, 'summary', datefnsLocale)
-  : monthUtils.format(month, "MMMM ''yy", locale);
+const periodLabel =
+  isPayPeriod(month) && payPeriodConfig?.enabled
+    ? getPayPeriodLabel(month, payPeriodConfig, 'summary', datefnsLocale)
+    : monthUtils.format(month, "MMMM ''yy", locale);
 ```
 
 **Rationale**: Prevents `monthUtils.format` from receiving a pay period ID (which would produce garbage output) and gives users a readable date-range label matching what the mobile budget header shows.
