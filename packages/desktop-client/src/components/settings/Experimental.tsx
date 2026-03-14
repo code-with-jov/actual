@@ -215,6 +215,12 @@ export function ExperimentalFeatures() {
             >
               <Trans>Budget Analysis Report</Trans>
             </FeatureToggle>
+            <FeatureToggle
+              flag="payeeLocations"
+              feedbackLink="https://github.com/actualbudget/actual/issues/6706"
+            >
+              <Trans>Payee Locations</Trans>
+            </FeatureToggle>
             <FeatureToggle flag="payPeriodsEnabled">
               <Trans>Pay period budgeting</Trans>
             </FeatureToggle>
