@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 
 import * as monthUtils from 'loot-core/shared/months';
 
+import { usePayPeriodConfig } from './PayPeriodContext';
+
 export type MonthBounds = {
   start: string;
   end: string;
@@ -42,9 +44,10 @@ export function MonthsProvider({
   type,
   children,
 }: MonthsProviderProps) {
-  const endMonth = monthUtils.addMonths(startMonth, numMonths - 1);
+  const config = usePayPeriodConfig();
+  const endMonth = monthUtils.addMonths(startMonth, numMonths - 1, config);
   const bounds = getValidMonthBounds(monthBounds, startMonth, endMonth);
-  const months = monthUtils.rangeInclusive(bounds.start, bounds.end);
+  const months = monthUtils.rangeInclusive(bounds.start, bounds.end, config);
 
   return (
     <MonthsContext.Provider value={{ months, type }}>

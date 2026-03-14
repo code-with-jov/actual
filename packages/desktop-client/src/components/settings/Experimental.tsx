@@ -221,6 +221,9 @@ export function ExperimentalFeatures() {
             >
               <Trans>Payee Locations</Trans>
             </FeatureToggle>
+            <FeatureToggle flag="payPeriodsEnabled">
+              <Trans>Pay period budgeting</Trans>
+            </FeatureToggle>
             {showServerPrefs && (
               <ServerFeatureToggle
                 prefName="flags.plugins"
