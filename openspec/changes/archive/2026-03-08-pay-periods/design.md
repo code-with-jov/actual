@@ -9,6 +9,7 @@ The critical technical constraint: `_parse('2024-13')` in the current implementa
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Pay periods as first-class budget units with correct transaction routing, spreadsheet sheets, and navigation
 - Zero schema changes; no migration path required
 - Backward-compatible `months.ts` API — all existing callers work unchanged
@@ -17,6 +18,7 @@ The critical technical constraint: `_parse('2024-13')` in the current implementa
 - Architecture extensible to mobile and tracking budget in follow-on work
 
 **Non-Goals:**
+
 - Mobile UI (v1)
 - Schedule/template integration with pay periods (v1)
 - `semimonthly` frequency (deferred; math complexity not justified yet)
@@ -45,6 +47,7 @@ The critical technical constraint: `_parse('2024-13')` in the current implementa
 ### D3: Explicit Config Passing (No Module Singleton)
 
 **Decision**: `PayPeriodConfig` is passed explicitly at every boundary:
+
 - **Frontend**: React context (`PayPeriodContext`) provided at `BudgetPage`, consumed via `usePayPeriodConfig()` hook.
 - **Backend**: Config loaded from synced prefs at budget-open time (`loadPayPeriodConfig()`); passed as a parameter through `createAllBudgets → createBudget → createCategory` and `handleTransactionChange`.
 
@@ -86,18 +89,19 @@ The `months.ts` utility functions accept an **optional** `config?: PayPeriodConf
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|------------|
-| Year-boundary transactions in prior-year sheets | Document clearly; report queries should filter by date range not sheet year |
-| `generatePayPeriods` called repeatedly with different configs clears memoization cache | Memoize on (year, frequency, startDate) tuple; config changes are infrequent |
-| `monthly` frequency edge case: period boundaries depend on start date, not calendar | `generatePayPeriods` for monthly uses date arithmetic from startDate, not `startOfMonth` |
-| Weekly periods: 52–53 periods/year; must not exceed 99 (limit of ID space) | 53 × weekly = max 53 periods; far below 87 slot limit. Add assertion in generator. |
-| Switching frequency after having pay period budget data orphans old sheets | v1: warn user that switching frequency resets pay period budget data; treat as intentional action |
+| Risk                                                                                                              | Mitigation                                                                                           |
+| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Year-boundary transactions in prior-year sheets                                                                   | Document clearly; report queries should filter by date range not sheet year                          |
+| `generatePayPeriods` called repeatedly with different configs clears memoization cache                            | Memoize on (year, frequency, startDate) tuple; config changes are infrequent                         |
+| `monthly` frequency edge case: period boundaries depend on start date, not calendar                               | `generatePayPeriods` for monthly uses date arithmetic from startDate, not `startOfMonth`             |
+| Weekly periods: 52–53 periods/year; must not exceed 99 (limit of ID space)                                        | 53 × weekly = max 53 periods; far below 87 slot limit. Add assertion in generator.                   |
+| Switching frequency after having pay period budget data orphans old sheets                                        | v1: warn user that switching frequency resets pay period budget data; treat as intentional action    |
 | Existing code that does `monthUtils.isBefore('2024-13', '2024-12')` — period IDs parse incorrectly without config | `isBefore` with period IDs must require config; add config param. Lint rule or type enforcement TBD. |
 
 ## Migration Plan
 
 No database migration required. Feature is gated behind `payPeriodsEnabled` feature flag. Enabling the feature for a user:
+
 1. User enables flag in Labs/Settings
 2. User configures frequency + start date in new Settings section
 3. `showPayPeriods: 'true'` is saved to synced prefs

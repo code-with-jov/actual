@@ -14,7 +14,6 @@ import { View } from '@actual-app/components/view';
 
 import * as monthUtils from 'loot-core/shared/months';
 
-
 import type { MonthBounds } from './MonthsContext';
 import { usePayPeriodConfig } from './PayPeriodContext';
 
@@ -129,7 +128,12 @@ export const MonthPicker = ({
           </View>
         </Link>
         {range.map((month, idx) => {
-          const monthName = monthUtils.nameForMonth(month, locale, config, true);
+          const monthName = monthUtils.nameForMonth(
+            month,
+            locale,
+            config,
+            true,
+          );
           const selected =
             idx >= firstSelectedIndex && idx <= lastSelectedIndex;
 

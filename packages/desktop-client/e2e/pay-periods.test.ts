@@ -19,7 +19,10 @@ async function selectFrequency(page: Page, frequencyLabel: string) {
   // Open the frequency dropdown (Select renders as a Button)
   await page.locator('#pay-period-frequency').click();
   // Click the desired item in the popover (scoped to the data-popover element)
-  await page.locator('[data-popover]').getByText(frequencyLabel, { exact: true }).click();
+  await page
+    .locator('[data-popover]')
+    .getByText(frequencyLabel, { exact: true })
+    .click();
 }
 
 /**
@@ -48,9 +51,7 @@ async function configurePayPeriods(
 
   // Set start date if provided
   if (startDate) {
-    await payPeriodSettings
-      .locator('#pay-period-start-date')
-      .fill(startDate);
+    await payPeriodSettings.locator('#pay-period-start-date').fill(startDate);
   }
 
   // Enable toggle if requested
@@ -116,7 +117,9 @@ test.describe('Pay Periods', () => {
     // All three options should be visible in the menu (scoped to the popover)
     const popover = page.locator('[data-popover]');
     await expect(popover.getByText('Weekly', { exact: true })).toBeVisible();
-    await expect(popover.getByText('Biweekly (every 2 weeks)', { exact: true })).toBeVisible();
+    await expect(
+      popover.getByText('Biweekly (every 2 weeks)', { exact: true }),
+    ).toBeVisible();
     await expect(popover.getByText('Monthly', { exact: true })).toBeVisible();
 
     // Close popover by pressing Escape
@@ -203,14 +206,16 @@ test.describe('Pay Periods', () => {
       await page.mouse.move(0, 0);
     });
 
-    // ── Spec: Short label for period header ────────────────────────────
-    // Covers: "Short label for period header" (pay-period-ui spec §3)
+    // ── Spec: Summary label for period header ──────────────────────────
+    // Covers: "Pay period display names" (pay-period-ui spec §3)
 
-    test('budget column header shows PP N short label when pay periods are active', async () => {
+    test('budget column header shows date-range summary label when pay periods are active', async () => {
       const header = page.getByTestId('budget-month-header').first();
       await expect(header).toBeVisible();
-      // Short label format: "PP 1", "PP 2", etc.
-      await expect(header).toHaveText(/^PP \d+$/);
+      // Summary label format: "MMM d - MMM d (PPn)", e.g. "Jan 4 - Jan 17 (PP1)"
+      await expect(header).toHaveText(
+        /^[A-Z][a-z]+ \d+ - [A-Z][a-z]+ \d+ \(PP\d+\)$/,
+      );
       await expect(page).toMatchThemeScreenshots();
     });
 
@@ -220,13 +225,14 @@ test.describe('Pay Periods', () => {
     test('next period arrow advances budget view by one pay period', async () => {
       const header = page.getByTestId('budget-month-header').first();
       const initialLabel = await header.textContent();
-      const initialNum = parseInt(initialLabel!.replace('PP ', ''), 10);
+      // Extract global period number from "(PPn)" at end of label
+      const initialNum = parseInt(initialLabel!.match(/\(PP(\d+)\)/)![1], 10);
 
       await page.getByRole('button', { name: 'Next period' }).first().click();
       await page.waitForTimeout(500);
 
       const nextLabel = await header.textContent();
-      const nextNum = parseInt(nextLabel!.replace('PP ', ''), 10);
+      const nextNum = parseInt(nextLabel!.match(/\(PP(\d+)\)/)![1], 10);
 
       // Should advance by one (or wrap to 1 at year boundary)
       expect(nextNum === initialNum + 1 || nextNum === 1).toBe(true);
@@ -242,7 +248,7 @@ test.describe('Pay Periods', () => {
 
       const header = page.getByTestId('budget-month-header').first();
       const advancedLabel = await header.textContent();
-      const advancedNum = parseInt(advancedLabel!.replace('PP ', ''), 10);
+      const advancedNum = parseInt(advancedLabel!.match(/\(PP(\d+)\)/)![1], 10);
 
       await page
         .getByRole('button', { name: 'Previous period' })
@@ -251,7 +257,7 @@ test.describe('Pay Periods', () => {
       await page.waitForTimeout(500);
 
       const prevLabel = await header.textContent();
-      const prevNum = parseInt(prevLabel!.replace('PP ', ''), 10);
+      const prevNum = parseInt(prevLabel!.match(/\(PP(\d+)\)/)![1], 10);
 
       expect(prevNum).toBe(advancedNum - 1);
     });
@@ -280,18 +286,20 @@ test.describe('Pay Periods', () => {
 
       // Should have changed back from the advanced position
       expect(labelAfterReturn).not.toBe(labelAfterAdvance);
-      // And still displays a period label
-      await expect(header).toHaveText(/^PP \d+$/);
+      // And still displays a summary period label
+      await expect(header).toHaveText(
+        /^[A-Z][a-z]+ \d+ - [A-Z][a-z]+ \d+ \(PP\d+\)$/,
+      );
     });
 
     // ── Spec: Context updates when preferences change ──────────────────
     // Covers: "Context updates when preferences change" (pay-period-ui spec §1)
 
     test('changing frequency in settings keeps budget in period mode on next visit', async () => {
-      // Confirm period mode is active
-      await expect(
-        page.getByTestId('budget-month-header').first(),
-      ).toHaveText(/^PP \d+$/);
+      // Confirm period mode is active (summary format)
+      await expect(page.getByTestId('budget-month-header').first()).toHaveText(
+        /^[A-Z][a-z]+ \d+ - [A-Z][a-z]+ \d+ \(PP\d+\)$/,
+      );
 
       // Navigate to settings and change frequency
       await navigation.goToSettingsPage();
@@ -304,10 +312,10 @@ test.describe('Pay Periods', () => {
       await page.waitForURL(/\/budget/);
       await page.getByTestId('budget-table').waitFor({ state: 'visible' });
 
-      // Still in period mode (weekly now, but still PP labels)
-      await expect(
-        page.getByTestId('budget-month-header').first(),
-      ).toHaveText(/^PP \d+$/);
+      // Still in period mode (weekly now, but still summary labels)
+      await expect(page.getByTestId('budget-month-header').first()).toHaveText(
+        /^[A-Z][a-z]+ \d+ - [A-Z][a-z]+ \d+ \(PP\d+\)$/,
+      );
     });
   });
 });

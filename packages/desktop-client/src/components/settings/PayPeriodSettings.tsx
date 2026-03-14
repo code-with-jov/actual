@@ -150,9 +150,8 @@ export function PayPeriodSettings() {
         <Text>
           <Trans>
             <strong>Pay period budgeting</strong> replaces calendar months with
-            your actual pay schedule (weekly, biweekly, or monthly). Set a
-            start date that matches when your first pay period of the year
-            begins.
+            your actual pay schedule (weekly, biweekly, or monthly). Set a start
+            date that matches when your first pay period of the year begins.
           </Trans>
         </Text>
         <Text>
