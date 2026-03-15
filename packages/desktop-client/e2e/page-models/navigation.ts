@@ -89,6 +89,7 @@ export class Navigation {
     }
 
     await settingsLink.click();
+    await this.page.waitForURL(/\/settings/);
 
     return new SettingsPage(this.page);
   }
