@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 import * as monthUtils from 'loot-core/shared/months';
 
-import { usePayPeriodConfig } from 'packages/desktop-client/src/components/budget/PayPeriodContext';
+import { usePayPeriodConfig } from '@desktop-client/components/budget/PayPeriodContext';
 
 type EnvelopeBudgetContextDefinition = {
   summaryCollapsed: boolean;
