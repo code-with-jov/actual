@@ -1,4 +1,5 @@
 import * as d from 'date-fns';
+import type { Locale } from 'date-fns';
 import memoizeOne from 'memoize-one';
 
 import type { PayPeriodConfig } from '../types/prefs';
@@ -203,7 +204,10 @@ export function getPayPeriodFromDate(
 /**
  * Alias for getPayPeriodFromDate.
  */
-export function getCurrentPayPeriod(date: Date, config: PayPeriodConfig): string {
+export function getCurrentPayPeriod(
+  date: Date,
+  config: PayPeriodConfig,
+): string {
   return getPayPeriodFromDate(date, config);
 }
 
@@ -211,7 +215,10 @@ export function getCurrentPayPeriod(date: Date, config: PayPeriodConfig): string
  * Returns the next pay period ID after the given one.
  * Wraps from the last period of a year to the first of the next year.
  */
-export function nextPayPeriod(monthId: string, config: PayPeriodConfig): string {
+export function nextPayPeriod(
+  monthId: string,
+  config: PayPeriodConfig,
+): string {
   const year = parseInt(monthId.slice(0, 4), 10);
   const mm = parseInt(monthId.slice(5, 7), 10);
   const periods = generatePayPeriods(year, config);
@@ -230,7 +237,10 @@ export function nextPayPeriod(monthId: string, config: PayPeriodConfig): string 
  * Returns the previous pay period ID before the given one.
  * Wraps from the first period of a year to the last of the prior year.
  */
-export function prevPayPeriod(monthId: string, config: PayPeriodConfig): string {
+export function prevPayPeriod(
+  monthId: string,
+  config: PayPeriodConfig,
+): string {
   const year = parseInt(monthId.slice(0, 4), 10);
   const mm = parseInt(monthId.slice(5, 7), 10);
 
@@ -290,44 +300,61 @@ export function generatePayPeriodRange(
 
 /**
  * Returns a human-readable label for a pay period.
- * Short format: 'PP 1'
- * Long format: 'Pay Period 1 (Jan 5 – Jan 18)'
+ *
+ * 'picker' format: '{monthLetter}{withinMonthCount}' — e.g. 'J1', 'F2'
+ *   The month letter is the first character of the locale-aware 'MMM'
+ *   abbreviation of the period's start month. The count is the 1-based
+ *   position of this period among all periods that start in the same
+ *   calendar month.
+ *
+ * 'summary' format: '{startDate} - {endDate} (PP{globalN})' — e.g. 'Jan 5 - Jan 18 (PP1)'
  */
 export function getPayPeriodLabel(
   monthId: string,
   config: PayPeriodConfig,
-  short = false,
+  format: 'picker' | 'summary' = 'summary',
+  locale?: Locale,
 ): string {
   const year = parseInt(monthId.slice(0, 4), 10);
   const mm = parseInt(monthId.slice(5, 7), 10);
   const periodNumber = mm - 13 + 1;
 
-  if (short) {
-    return `PP ${periodNumber}`;
-  }
-
   const periods = generatePayPeriods(year, config);
   const period = periods.find(p => p.monthId === monthId);
 
   if (!period) {
-    return `Pay Period ${periodNumber}`;
+    return `PP${periodNumber}`;
   }
 
-  const startDate = new Date(
-    parseInt(period.startDate.slice(0, 4)),
-    parseInt(period.startDate.slice(5, 7)) - 1,
-    parseInt(period.startDate.slice(8, 10)),
-    12,
-  );
-  const endDate = new Date(
-    parseInt(period.endDate.slice(0, 4)),
-    parseInt(period.endDate.slice(5, 7)) - 1,
-    parseInt(period.endDate.slice(8, 10)),
-    12,
-  );
+  const parseDate = (str: string) =>
+    new Date(
+      parseInt(str.slice(0, 4)),
+      parseInt(str.slice(5, 7)) - 1,
+      parseInt(str.slice(8, 10)),
+      12,
+    );
 
-  const formatDate = (dt: Date) =>
-    d.format(dt, 'MMM d');
+  const startDate = parseDate(period.startDate);
+  const endDate = parseDate(period.endDate);
 
-  return `Pay Period ${periodNumber} (${formatDate(startDate)} \u2013 ${formatDate(endDate)})`;
+  if (format === 'picker') {
+    // Derive month letter from locale-aware 'MMM' abbreviation
+    const monthLetter = d.format(startDate, 'MMM', { locale })[0];
+
+    // Count how many periods start in the same calendar month, find position
+    const startMonth = startDate.getMonth();
+    const startYear = startDate.getFullYear();
+    const siblingsInMonth = periods.filter(p => {
+      const ps = parseDate(p.startDate);
+      return ps.getFullYear() === startYear && ps.getMonth() === startMonth;
+    });
+    const withinMonthCount =
+      siblingsInMonth.findIndex(p => p.monthId === monthId) + 1;
+
+    return `${monthLetter}${withinMonthCount}`;
+  }
+
+  // 'summary' format
+  const formatDate = (dt: Date) => d.format(dt, 'MMM d', { locale });
+  return `${formatDate(startDate)} - ${formatDate(endDate)} (PP${periodNumber})`;
 }

@@ -23,7 +23,12 @@ export function createBlankCategory(cat, months, config?: PayPeriodConfig) {
   }
 }
 
-function createBlankMonth(categories, sheetName, months, config?: PayPeriodConfig) {
+function createBlankMonth(
+  categories,
+  sheetName,
+  months,
+  config?: PayPeriodConfig,
+) {
   sheet.get().createStatic(sheetName, 'is-blank', true);
   sheet.get().createStatic(sheetName, 'to-budget', 0);
   sheet.get().createStatic(sheetName, 'buffered', 0);
@@ -226,7 +231,12 @@ export function createSummary(groups, categories, prevSheetName, sheetName) {
   });
 }
 
-export function createBudget(meta, categories, months, config?: PayPeriodConfig) {
+export function createBudget(
+  meta,
+  categories,
+  months,
+  config?: PayPeriodConfig,
+) {
   // The spreadsheet is now strict - so we need to fill in some
   // default values for the month before the first month. Only do this
   // if it doesn't already exist
@@ -238,7 +248,12 @@ export function createBudget(meta, categories, months, config?: PayPeriodConfig)
   }
 }
 
-export function handleCategoryChange(months, oldValue, newValue, config?: PayPeriodConfig) {
+export function handleCategoryChange(
+  months,
+  oldValue,
+  newValue,
+  config?: PayPeriodConfig,
+) {
   function addDeps(sheetName, groupId, catId) {
     sheet
       .get()

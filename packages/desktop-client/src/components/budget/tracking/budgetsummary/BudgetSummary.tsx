@@ -16,7 +16,7 @@ import { View } from '@actual-app/components/view';
 import { css } from '@emotion/css';
 
 import * as monthUtils from 'loot-core/shared/months';
-import { isPayPeriod, getPayPeriodLabel } from 'loot-core/shared/pay-periods';
+import { getPayPeriodLabel, isPayPeriod } from 'loot-core/shared/pay-periods';
 
 import { BudgetMonthMenu } from './BudgetMonthMenu';
 import { ExpenseTotal } from './ExpenseTotal';
@@ -131,7 +131,7 @@ export function BudgetSummary({ month }: BudgetSummaryProps) {
             })}
           >
             {config && isPayPeriod(month)
-              ? getPayPeriodLabel(month, config, true)
+              ? getPayPeriodLabel(month, config, 'summary', locale)
               : monthUtils.format(month, 'MMMM', locale)}
           </div>
 
