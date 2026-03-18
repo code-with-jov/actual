@@ -15,13 +15,16 @@ import { Text } from '@actual-app/components/text';
 import { theme } from '@actual-app/components/theme';
 import { View } from '@actual-app/components/view';
 import { css } from '@emotion/css';
-import type { CategoryGroupMonthProps, CategoryMonthProps } from 'packages';
 
 import * as monthUtils from 'loot-core/shared/months';
 
 import { BalanceMenu } from './BalanceMenu';
 import { BudgetMenu } from './BudgetMenu';
 
+import type {
+  CategoryGroupMonthProps,
+  CategoryMonthProps,
+} from '@desktop-client/components/budget';
 import { BalanceWithCarryover } from '@desktop-client/components/budget/BalanceWithCarryover';
 import { makeAmountGrey } from '@desktop-client/components/budget/util';
 import {
