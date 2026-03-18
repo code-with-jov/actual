@@ -15,10 +15,9 @@ import { Text } from '@actual-app/components/text';
 import { theme } from '@actual-app/components/theme';
 import { View } from '@actual-app/components/view';
 import { css } from '@emotion/css';
+import type { CategoryGroupMonthProps, CategoryMonthProps } from 'packages';
 
 import * as monthUtils from 'loot-core/shared/months';
-
-import type { CategoryGroupMonthProps, CategoryMonthProps } from '..';
 
 import { BalanceMenu } from './BalanceMenu';
 import { BudgetMenu } from './BudgetMenu';
