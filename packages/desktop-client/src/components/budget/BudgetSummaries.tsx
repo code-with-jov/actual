@@ -43,7 +43,7 @@ export function BudgetSummaries() {
     all.unshift(subMonths(firstMonth, 1, payPeriodConfig));
     all.push(addMonths(months[months.length - 1], 1, payPeriodConfig));
     return all;
-  }, [months, firstMonth]);
+  }, [months, firstMonth, payPeriodConfig]);
   const monthWidth = widthState / months.length;
 
   useLayoutEffect(() => {
