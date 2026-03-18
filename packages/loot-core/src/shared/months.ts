@@ -314,7 +314,7 @@ export function bounds(
     const period = periods.find(p => p.monthId === String(month));
     if (!period) {
       throw new Error(
-        `bounds: pay period '${month}' not found in year ${year}`,
+        `bounds: pay period '${String(month)}' not found in year ${year}`,
       );
     }
     return {
