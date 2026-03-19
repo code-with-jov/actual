@@ -5,8 +5,6 @@ import * as monthUtils from 'loot-core/shared/months';
 
 import { usePayPeriodConfig } from '@desktop-client/components/budget/PayPeriodContext';
 
-import * as monthUtils from 'loot-core/shared/months';
-
 type TrackingBudgetContextDefinition = {
   summaryCollapsed: boolean;
   onBudgetAction: (month: string, action: string, arg?: unknown) => void;
