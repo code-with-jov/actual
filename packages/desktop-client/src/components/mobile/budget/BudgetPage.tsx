@@ -63,6 +63,7 @@ import { SheetNameProvider } from '@desktop-client/hooks/useSheetName';
 import { useSheetValue } from '@desktop-client/hooks/useSheetValue';
 import { useSpreadsheet } from '@desktop-client/hooks/useSpreadsheet';
 import { useSyncedPref } from '@desktop-client/hooks/useSyncedPref';
+import { useTogglePayPeriods } from '@desktop-client/hooks/useTogglePayPeriods';
 import { useTransactions } from '@desktop-client/hooks/useTransactions';
 import { useUndo } from '@desktop-client/hooks/useUndo';
 import { collapseModals, pushModal } from '@desktop-client/modals/modalsSlice';
@@ -88,6 +89,7 @@ export function BudgetPage() {
   const spreadsheet = useSpreadsheet();
 
   const isPayPeriodsEnabled = useFeatureFlag('payPeriodsEnabled');
+  const { payPeriodsActive, togglePayPeriods } = useTogglePayPeriods();
   const [showPayPeriods] = useSyncedPref('showPayPeriods');
   const [payPeriodFrequency] = useSyncedPref('payPeriodFrequency');
   const [payPeriodStartDate] = useSyncedPref('payPeriodStartDate');
@@ -535,15 +537,24 @@ export function BudgetPage() {
             onAddCategoryGroup: onOpenNewCategoryGroupModal,
             onToggleHiddenCategories,
             onSwitchBudgetFile,
+            onTogglePayPeriods: isPayPeriodsEnabled
+              ? togglePayPeriods
+              : undefined,
+            payPeriodsActive: isPayPeriodsEnabled
+              ? payPeriodsActive
+              : undefined,
           },
         },
       }),
     );
   }, [
     dispatch,
+    isPayPeriodsEnabled,
     onOpenNewCategoryGroupModal,
     onSwitchBudgetFile,
     onToggleHiddenCategories,
+    payPeriodsActive,
+    togglePayPeriods,
   ]);
 
   if (!categoryGroups || !initialized) {
