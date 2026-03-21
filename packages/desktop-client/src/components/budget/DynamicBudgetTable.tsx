@@ -11,6 +11,7 @@ import * as monthUtils from 'loot-core/shared/months';
 import { useBudgetMonthCount } from './BudgetMonthCountContext';
 import { BudgetPageHeader } from './BudgetPageHeader';
 import { BudgetTable } from './BudgetTable';
+import { usePayPeriodConfig } from './PayPeriodContext';
 
 import { useGlobalPref } from '@desktop-client/hooks/useGlobalPref';
 
@@ -49,6 +50,7 @@ const DynamicBudgetTable = ({
   ...props
 }: DynamicBudgetTableProps) => {
   const { setDisplayMax } = useBudgetMonthCount();
+  const payPeriodConfig = usePayPeriodConfig();
   const [categoryExpandedStatePref] = useGlobalPref('categoryExpandedState');
   const categoryExpandedState = categoryExpandedStatePref ?? 0;
 
@@ -65,7 +67,11 @@ const DynamicBudgetTable = ({
 
   function getValidMonth(month) {
     const start = monthBounds.start;
-    const end = monthUtils.subMonths(monthBounds.end, numMonths - 1);
+    const end = monthUtils.subMonths(
+      monthBounds.end,
+      numMonths - 1,
+      payPeriodConfig,
+    );
 
     if (month < start) {
       return start;
@@ -82,7 +88,7 @@ const DynamicBudgetTable = ({
   useHotkeys(
     'left',
     () => {
-      _onMonthSelect(monthUtils.prevMonth(startMonth));
+      _onMonthSelect(monthUtils.prevMonth(startMonth, payPeriodConfig));
     },
     {
       preventDefault: true,
@@ -93,7 +99,7 @@ const DynamicBudgetTable = ({
   useHotkeys(
     'right',
     () => {
-      _onMonthSelect(monthUtils.nextMonth(startMonth));
+      _onMonthSelect(monthUtils.nextMonth(startMonth, payPeriodConfig));
     },
     {
       preventDefault: true,
@@ -106,12 +112,13 @@ const DynamicBudgetTable = ({
     () => {
       _onMonthSelect(
         monthUtils.subMonths(
-          monthUtils.currentMonth(),
+          monthUtils.currentMonth(payPeriodConfig),
           type === 'envelope'
             ? Math.floor((numMonths - 1) / 2)
             : numMonths === 2
               ? 1
               : Math.max(numMonths - 2, 0),
+          payPeriodConfig,
         ),
       );
     },

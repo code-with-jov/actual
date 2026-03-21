@@ -12,7 +12,7 @@ import type {
   CategoryEntity,
   CategoryGroupEntity,
 } from 'loot-core/types/models';
-import type { SyncedPrefs } from 'loot-core/types/prefs';
+import type { PayPeriodConfig, SyncedPrefs } from 'loot-core/types/prefs';
 
 import { getValidMonthBounds } from './MonthsContext';
 
@@ -198,15 +198,16 @@ export async function prewarmAllMonths(
   spreadsheet: ReturnType<typeof useSpreadsheet>,
   bounds: { start: string; end: string },
   startMonth: string,
+  config?: PayPeriodConfig,
 ) {
   const numMonths = 3;
 
   bounds = getValidMonthBounds(
     bounds,
-    monthUtils.subMonths(startMonth, 1),
-    monthUtils.addMonths(startMonth, numMonths + 1),
+    monthUtils.addMonths(startMonth, -1, config),
+    monthUtils.addMonths(startMonth, numMonths + 1, config),
   );
-  const months = monthUtils.rangeInclusive(bounds.start, bounds.end);
+  const months = monthUtils.rangeInclusive(bounds.start, bounds.end, config);
 
   await Promise.all(
     months.map(month => prewarmMonth(budgetType, spreadsheet, month)),

@@ -18,6 +18,7 @@ import { handleBudgetImport } from '../importers';
 import type { ImportableBudgetType } from '../importers';
 import { app as mainApp } from '../main-app';
 import { mutator } from '../mutators';
+import { loadPayPeriodConfig } from '../preferences/app';
 import * as prefs from '../prefs';
 import { getServer } from '../server-config';
 import * as sheet from '../sheet';
@@ -600,7 +601,10 @@ async function _loadBudget(id: Budget['id']): Promise<{
       ['budgetType'],
     )) ?? {};
   sheet.get().meta().budgetType = budgetType as prefs.BudgetType;
-  await budget.createAllBudgets();
+
+  const payPeriodConfig = await loadPayPeriodConfig();
+  sheet.get().meta().payPeriodConfig = payPeriodConfig;
+  await budget.createAllBudgets(payPeriodConfig);
 
   // Load all the in-memory state
   await mappings.loadMappings();

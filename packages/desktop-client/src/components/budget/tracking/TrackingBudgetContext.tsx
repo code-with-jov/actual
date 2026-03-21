@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 
 import * as monthUtils from 'loot-core/shared/months';
 
+import { usePayPeriodConfig } from '@desktop-client/components/budget/PayPeriodContext';
+
 type TrackingBudgetContextDefinition = {
   summaryCollapsed: boolean;
   onBudgetAction: (month: string, action: string, arg?: unknown) => void;
@@ -35,7 +37,8 @@ export function TrackingBudgetProvider({
   onToggleSummaryCollapse,
   children,
 }: TrackingBudgetProviderProps) {
-  const currentMonth = monthUtils.currentMonth();
+  const config = usePayPeriodConfig();
+  const currentMonth = monthUtils.currentMonth(config);
 
   return (
     <TrackingBudgetContext.Provider

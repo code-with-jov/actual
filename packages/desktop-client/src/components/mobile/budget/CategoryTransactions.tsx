@@ -1,9 +1,13 @@
 import React, { useCallback, useMemo, useState } from 'react';
 
+import * as monthUtils from 'loot-core/shared/months';
+import { isPayPeriod } from 'loot-core/shared/pay-periods';
 import { q } from 'loot-core/shared/query';
 import { isPreviewId } from 'loot-core/shared/transactions';
 import type { CategoryEntity, TransactionEntity } from 'loot-core/types/models';
+import type { PayPeriodConfig } from 'loot-core/types/prefs';
 
+import { usePayPeriodConfig } from '@desktop-client/components/budget/PayPeriodContext';
 import { TransactionListWithBalances } from '@desktop-client/components/mobile/transactions/TransactionListWithBalances';
 import { SchedulesProvider } from '@desktop-client/hooks/useCachedSchedules';
 import { useCategoryPreviewTransactions } from '@desktop-client/hooks/useCategoryPreviewTransactions';
@@ -41,14 +45,15 @@ function TransactionListWithPreviews({
   month,
 }: TransactionListWithPreviewsProps) {
   const navigate = useNavigate();
+  const payPeriodConfig = usePayPeriodConfig();
 
   const baseTransactionsQuery = useCallback(
     () =>
       q('transactions')
         .options({ splits: 'inline' })
-        .filter(getCategoryMonthFilter(category, month))
+        .filter(getCategoryMonthFilter(category, month, payPeriodConfig))
         .select('*'),
-    [category, month],
+    [category, month, payPeriodConfig],
   );
 
   const [transactionsQuery, setTransactionsQuery] = useState(
@@ -118,7 +123,22 @@ function TransactionListWithPreviews({
   );
 }
 
-function getCategoryMonthFilter(category: CategoryEntity, month: string) {
+function getCategoryMonthFilter(
+  category: CategoryEntity,
+  month: string,
+  config?: PayPeriodConfig,
+) {
+  if (isPayPeriod(month) && config?.enabled) {
+    const { start, end } = monthUtils.bounds(month, config);
+    const toDateStr = (n: number) => {
+      const s = String(n);
+      return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+    };
+    return {
+      category: category.id,
+      date: { $gte: toDateStr(start), $lte: toDateStr(end) },
+    };
+  }
   return {
     category: category.id,
     date: { $transform: '$month', $eq: month },

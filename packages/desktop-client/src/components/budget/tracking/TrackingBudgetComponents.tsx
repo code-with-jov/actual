@@ -19,11 +19,13 @@ import { t } from 'i18next';
 
 import * as monthUtils from 'loot-core/shared/months';
 
-import type { CategoryGroupMonthProps, CategoryMonthProps } from '..';
-
 import { BalanceMenu } from './BalanceMenu';
 import { BudgetMenu } from './BudgetMenu';
 
+import type {
+  CategoryGroupMonthProps,
+  CategoryMonthProps,
+} from '@desktop-client/components/budget';
 import { BalanceWithCarryover } from '@desktop-client/components/budget/BalanceWithCarryover';
 import { makeAmountGrey } from '@desktop-client/components/budget/util';
 import { NotesButton } from '@desktop-client/components/NotesButton';

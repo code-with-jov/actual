@@ -3,6 +3,7 @@ import mitt from 'mitt';
 
 import { logger } from '../../platform/server/log';
 import type { QueryState } from '../../shared/query';
+import type { PayPeriodConfig } from '../../types/prefs';
 import { aqlCompiledQuery, compileQuery, schema, schemaConfig } from '../aql';
 import type { BudgetType } from '../prefs';
 
@@ -25,6 +26,7 @@ export class Spreadsheet {
   _meta: {
     createdMonths: Set<string>;
     budgetType: BudgetType;
+    payPeriodConfig?: PayPeriodConfig;
   };
   cacheBarrier;
   computeQueue;

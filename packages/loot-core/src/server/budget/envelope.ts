@@ -1,6 +1,7 @@
 // @ts-strict-ignore
 import * as monthUtils from '../../shared/months';
 import { safeNumber } from '../../shared/util';
+import type { PayPeriodConfig } from '../../types/prefs';
 import * as db from '../db';
 import * as sheet from '../sheet';
 import { resolveName } from '../spreadsheet/util';
@@ -8,26 +9,31 @@ import { resolveName } from '../spreadsheet/util';
 import { createCategory as createCategoryFromBase } from './base';
 import { flatten2, number, sumAmounts, unflatten2 } from './util';
 
-function getBlankSheet(months) {
-  const blankMonth = monthUtils.prevMonth(months[0]);
+function getBlankSheet(months, config?: PayPeriodConfig) {
+  const blankMonth = monthUtils.prevMonth(months[0], config);
   return monthUtils.sheetForMonth(blankMonth);
 }
 
-export function createBlankCategory(cat, months) {
+export function createBlankCategory(cat, months, config?: PayPeriodConfig) {
   if (months.length > 0) {
-    const sheetName = getBlankSheet(months);
+    const sheetName = getBlankSheet(months, config);
     sheet.get().createStatic(sheetName, `carryover-${cat.id}`, false);
     sheet.get().createStatic(sheetName, `leftover-${cat.id}`, 0);
     sheet.get().createStatic(sheetName, `leftover-pos-${cat.id}`, 0);
   }
 }
 
-function createBlankMonth(categories, sheetName, months) {
+function createBlankMonth(
+  categories,
+  sheetName,
+  months,
+  config?: PayPeriodConfig,
+) {
   sheet.get().createStatic(sheetName, 'is-blank', true);
   sheet.get().createStatic(sheetName, 'to-budget', 0);
   sheet.get().createStatic(sheetName, 'buffered', 0);
 
-  categories.forEach(cat => createBlankCategory(cat, months));
+  categories.forEach(cat => createBlankCategory(cat, months, config));
 }
 
 export function createCategory(cat, sheetName, prevSheetName) {
@@ -225,19 +231,29 @@ export function createSummary(groups, categories, prevSheetName, sheetName) {
   });
 }
 
-export function createBudget(meta, categories, months) {
+export function createBudget(
+  meta,
+  categories,
+  months,
+  config?: PayPeriodConfig,
+) {
   // The spreadsheet is now strict - so we need to fill in some
   // default values for the month before the first month. Only do this
   // if it doesn't already exist
-  const blankSheet = getBlankSheet(months);
+  const blankSheet = getBlankSheet(months, config);
   if (meta.blankSheet !== blankSheet) {
     sheet.get().clearSheet(meta.blankSheet);
-    createBlankMonth(categories, blankSheet, months);
+    createBlankMonth(categories, blankSheet, months, config);
     meta.blankSheet = blankSheet;
   }
 }
 
-export function handleCategoryChange(months, oldValue, newValue) {
+export function handleCategoryChange(
+  months,
+  oldValue,
+  newValue,
+  config?: PayPeriodConfig,
+) {
   function addDeps(sheetName, groupId, catId) {
     sheet
       .get()
@@ -286,13 +302,13 @@ export function handleCategoryChange(months, oldValue, newValue) {
     newValue.tombstone === 0 &&
     (!oldValue || oldValue.tombstone === 1)
   ) {
-    createBlankCategory(newValue, months);
+    createBlankCategory(newValue, months, config);
 
     months.forEach(month => {
-      const prevMonth = monthUtils.prevMonth(month);
+      const prevMonth = monthUtils.prevMonth(month, config);
       const prevSheetName = monthUtils.sheetForMonth(prevMonth);
       const sheetName = monthUtils.sheetForMonth(month);
-      const { start, end } = monthUtils.bounds(month);
+      const { start, end } = monthUtils.bounds(month, config);
 
       createCategoryFromBase(newValue, sheetName, prevSheetName, start, end);
 
