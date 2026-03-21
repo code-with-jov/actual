@@ -292,6 +292,24 @@ test.describe('Pay Periods', () => {
       );
     });
 
+    // ── Spec: Spent cell routes to transactions when pay periods are active ─
+    // Covers: onShowActivity with payPeriodConfig (budget/index.tsx)
+
+    test('clicking on spent amounts opens the transactions page and back returns to budget', async () => {
+      await page
+        .getByTestId('budget-table')
+        .getByTestId('category-month-spent')
+        .first()
+        .click();
+
+      await page.waitForURL(/\/accounts/);
+      await expect(page.getByTestId('account-name')).toHaveText('All Accounts');
+
+      await page.getByRole('button', { name: 'Back' }).click();
+      await page.waitForURL(/\/budget/);
+      await expect(page.getByTestId('budget-table')).toBeVisible();
+    });
+
     // ── Spec: Context updates when preferences change ──────────────────
     // Covers: "Context updates when preferences change" (pay-period-ui spec §1)
 

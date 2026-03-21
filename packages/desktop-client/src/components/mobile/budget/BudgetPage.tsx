@@ -1033,7 +1033,10 @@ function MonthSelector({
       prevPeriodId,
       payPeriodConfig,
     ).start;
-    const calendarBoundsStart = monthUtils.bounds(monthBounds.start).start;
+    const calendarBoundsStart = monthUtils.bounds(
+      monthBounds.start,
+      payPeriodConfig,
+    ).start;
     prevEnabled = prevPeriodStart >= calendarBoundsStart;
 
     const nextPeriodId = monthUtils.nextMonth(month, payPeriodConfig);
@@ -1041,11 +1044,16 @@ function MonthSelector({
       nextPeriodId,
       payPeriodConfig,
     ).start;
-    const calendarBoundsEnd = monthUtils.bounds(monthBounds.end).end;
+    const calendarBoundsEnd = monthUtils.bounds(
+      monthBounds.end,
+      payPeriodConfig,
+    ).end;
     nextEnabled = nextPeriodStart <= calendarBoundsEnd;
   } else {
     prevEnabled = month > monthBounds.start;
-    nextEnabled = month < monthUtils.subMonths(monthBounds.end, 1);
+    nextEnabled =
+      !isPayPeriod(monthBounds.end) &&
+      month < monthUtils.subMonths(monthBounds.end, 1);
   }
 
   const periodLabel =
