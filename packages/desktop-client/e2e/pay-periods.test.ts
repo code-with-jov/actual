@@ -34,14 +34,9 @@ async function configurePayPeriods(
   opts: {
     frequencyLabel?: string;
     startDate?: string;
-    enable?: boolean;
   } = {},
 ) {
-  const {
-    frequencyLabel = 'Biweekly (every 2 weeks)',
-    startDate,
-    enable = true,
-  } = opts;
+  const { frequencyLabel = 'Biweekly (every 2 weeks)', startDate } = opts;
 
   const payPeriodSettings = page.getByTestId('pay-period-settings');
   await payPeriodSettings.waitFor({ state: 'visible' });
@@ -53,16 +48,20 @@ async function configurePayPeriods(
   if (startDate) {
     await payPeriodSettings.locator('#pay-period-start-date').fill(startDate);
   }
+}
 
-  // Enable toggle if requested
-  if (enable) {
-    const checkbox = payPeriodSettings.getByRole('checkbox', {
-      name: 'Enable pay period budgeting',
-    });
-    if (!(await checkbox.isChecked())) {
-      await checkbox.click();
-    }
-  }
+/**
+ * Enable pay periods via the toggle button in MonthPicker on the Budget page.
+ * Assumes the budget page is already open and the feature flag is ON.
+ */
+async function enablePayPeriodsOnBudgetPage(page: Page) {
+  await page
+    .getByRole('button', { name: 'Toggle pay period budgeting' })
+    .click();
+  // Wait until a PP-format header appears, confirming engine reconnection
+  await expect(
+    page.getByTestId('budget-month-header').first(),
+  ).toHaveText(/PP\d+/, { timeout: 5000 });
 }
 
 test.describe('Pay Periods', () => {
@@ -126,48 +125,6 @@ test.describe('Pay Periods', () => {
     await page.keyboard.press('Escape');
   });
 
-  // ── Spec: Start date required before enabling ───────────────────────────
-  // Covers: "Start date is required before enabling" (pay-period-ui spec §4)
-
-  test('shows validation error when enabling pay periods without a start date', async () => {
-    await enablePayPeriodsFeatureFlag(settingsPage);
-
-    const payPeriodSettings = page.getByTestId('pay-period-settings');
-    await payPeriodSettings.waitFor({ state: 'visible' });
-
-    // Attempt to enable without setting a start date
-    const checkbox = payPeriodSettings.getByRole('checkbox', {
-      name: 'Enable pay period budgeting',
-    });
-    await checkbox.click();
-
-    // Validation should have blocked enabling
-    await expect(checkbox).not.toBeChecked();
-
-    // Error message must be visible
-    await expect(
-      payPeriodSettings.getByText(/start date is required/i),
-    ).toBeVisible();
-  });
-
-  // ── Spec: User successfully enables pay periods ─────────────────────────
-  // Covers: "User enables pay periods" full happy path (pay-period-ui spec §4)
-
-  test('can enable pay periods with frequency and start date configured', async () => {
-    await enablePayPeriodsFeatureFlag(settingsPage);
-    await configurePayPeriods(page, {
-      frequencyLabel: 'Biweekly (every 2 weeks)',
-      startDate: '2024-01-01',
-      enable: true,
-    });
-
-    const checkbox = page
-      .getByTestId('pay-period-settings')
-      .getByRole('checkbox', { name: 'Enable pay period budgeting' });
-
-    await expect(checkbox).toBeChecked();
-  });
-
   // ── Spec: Frequency change warning ─────────────────────────────────────
   // Covers: frequency-change warning (pay-period-ui spec §4, task 10.5)
 
@@ -176,8 +133,14 @@ test.describe('Pay Periods', () => {
     await configurePayPeriods(page, {
       frequencyLabel: 'Biweekly (every 2 weeks)',
       startDate: '2024-01-01',
-      enable: true,
     });
+    // Enable via budget page toggle, then return to settings
+    await page.getByRole('link', { name: 'Budget', exact: true }).click();
+    await page.waitForURL(/\/budget/);
+    await page.getByTestId('budget-table').waitFor({ state: 'visible' });
+    await enablePayPeriodsOnBudgetPage(page);
+    await navigation.goToSettingsPage();
+    await page.getByTestId('pay-period-settings').waitFor({ state: 'visible' });
 
     // Change frequency while pay periods are active
     await selectFrequency(page, 'Weekly');
@@ -197,11 +160,11 @@ test.describe('Pay Periods', () => {
       await configurePayPeriods(page, {
         frequencyLabel: 'Biweekly (every 2 weeks)',
         startDate: '2024-01-01',
-        enable: true,
       });
       await page.getByRole('link', { name: 'Budget', exact: true }).click();
       await page.waitForURL(/\/budget/);
       await page.getByTestId('budget-table').waitFor({ state: 'visible' });
+      await enablePayPeriodsOnBudgetPage(page);
       // Move mouse away to avoid hover artifacts in screenshots
       await page.mouse.move(0, 0);
     });
@@ -292,6 +255,24 @@ test.describe('Pay Periods', () => {
       );
     });
 
+    // ── Spec: Spent cell routes to transactions when pay periods are active ─
+    // Covers: onShowActivity with payPeriodConfig (budget/index.tsx)
+
+    test('clicking on spent amounts opens the transactions page and back returns to budget', async () => {
+      await page
+        .getByTestId('budget-table')
+        .getByTestId('category-month-spent')
+        .first()
+        .click();
+
+      await page.waitForURL(/\/accounts/);
+      await expect(page.getByTestId('account-name')).toHaveText('All Accounts');
+
+      await page.getByRole('button', { name: 'Back' }).click();
+      await page.waitForURL(/\/budget/);
+      await expect(page.getByTestId('budget-table')).toBeVisible();
+    });
+
     // ── Spec: Context updates when preferences change ──────────────────
     // Covers: "Context updates when preferences change" (pay-period-ui spec §1)
 
@@ -317,5 +298,152 @@ test.describe('Pay Periods', () => {
         /^[A-Z][a-z]+ \d+ - [A-Z][a-z]+ \d+ \(PP\d+\)$/,
       );
     });
+  });
+
+  // ── Spec: Toggle button visibility ─────────────────────────────────────
+
+  test('toggle button is absent when feature flag is OFF', async () => {
+    await page.getByRole('link', { name: 'Budget', exact: true }).click();
+    await page.waitForURL(/\/budget/);
+    await page.getByTestId('budget-table').waitFor({ state: 'visible' });
+
+    await expect(
+      page.getByRole('button', { name: 'Toggle pay period budgeting' }),
+    ).not.toBeVisible();
+  });
+
+  test('toggle button is visible when feature flag is ON', async () => {
+    await enablePayPeriodsFeatureFlag(settingsPage);
+    await page.getByRole('link', { name: 'Budget', exact: true }).click();
+    await page.waitForURL(/\/budget/);
+    await page.getByTestId('budget-table').waitFor({ state: 'visible' });
+
+    await expect(
+      page.getByRole('button', { name: 'Toggle pay period budgeting' }),
+    ).toBeVisible();
+  });
+
+  // ── Spec: Toggle ON/OFF behaviour ──────────────────────────────────────
+
+  test('clicking toggle ON activates pay period labels', async () => {
+    await enablePayPeriodsFeatureFlag(settingsPage);
+    await configurePayPeriods(page, {
+      frequencyLabel: 'Biweekly (every 2 weeks)',
+      startDate: '2024-01-01',
+    });
+    await page.getByRole('link', { name: 'Budget', exact: true }).click();
+    await page.waitForURL(/\/budget/);
+    await page.getByTestId('budget-table').waitFor({ state: 'visible' });
+
+    await enablePayPeriodsOnBudgetPage(page);
+
+    await expect(page.getByTestId('budget-month-header').first()).toHaveText(
+      /^[A-Z][a-z]+ \d+ - [A-Z][a-z]+ \d+ \(PP\d+\)$/,
+    );
+  });
+
+  test('clicking toggle OFF restores calendar month labels', async () => {
+    await enablePayPeriodsFeatureFlag(settingsPage);
+    await configurePayPeriods(page, {
+      frequencyLabel: 'Biweekly (every 2 weeks)',
+      startDate: '2024-01-01',
+    });
+    await page.getByRole('link', { name: 'Budget', exact: true }).click();
+    await page.waitForURL(/\/budget/);
+    await page.getByTestId('budget-table').waitFor({ state: 'visible' });
+    await enablePayPeriodsOnBudgetPage(page);
+
+    // Toggle OFF
+    await page
+      .getByRole('button', { name: 'Toggle pay period budgeting' })
+      .click();
+
+    await expect(page.getByTestId('budget-month-header').first()).not.toHaveText(
+      /PP\d+/,
+    );
+    await expect(page.getByTestId('budget-month-header').first()).toHaveText(
+      /^[A-Z][a-z]+ \d{4}$/,
+    );
+  });
+
+  // ── Spec: Spent cells populated and clickable after toggle ─────────────
+
+  test('spent cells are populated after toggling ON', async () => {
+    await enablePayPeriodsFeatureFlag(settingsPage);
+    await configurePayPeriods(page, {
+      frequencyLabel: 'Biweekly (every 2 weeks)',
+      startDate: '2024-01-01',
+    });
+    await page.getByRole('link', { name: 'Budget', exact: true }).click();
+    await page.waitForURL(/\/budget/);
+    await page.getByTestId('budget-table').waitFor({ state: 'visible' });
+    await enablePayPeriodsOnBudgetPage(page);
+
+    // At least one spent cell should have a non-empty value
+    const spentCells = page
+      .getByTestId('budget-table')
+      .getByTestId('category-month-spent');
+    const count = await spentCells.count();
+    expect(count).toBeGreaterThan(0);
+
+    let foundNonEmpty = false;
+    for (let i = 0; i < count; i++) {
+      const text = (await spentCells.nth(i).textContent()) ?? '';
+      if (text.trim() !== '' && text.trim() !== '$0.00' && text.trim() !== '0') {
+        foundNonEmpty = true;
+        break;
+      }
+    }
+    expect(foundNonEmpty).toBe(true);
+  });
+
+  test('clicking a spent cell after toggling ON opens the transactions page', async () => {
+    await enablePayPeriodsFeatureFlag(settingsPage);
+    await configurePayPeriods(page, {
+      frequencyLabel: 'Biweekly (every 2 weeks)',
+      startDate: '2024-01-01',
+    });
+    await page.getByRole('link', { name: 'Budget', exact: true }).click();
+    await page.waitForURL(/\/budget/);
+    await page.getByTestId('budget-table').waitFor({ state: 'visible' });
+    await enablePayPeriodsOnBudgetPage(page);
+
+    await page
+      .getByTestId('budget-table')
+      .getByTestId('category-month-spent')
+      .first()
+      .click();
+
+    await page.waitForURL(/\/accounts/);
+    await expect(page.getByTestId('account-name')).toHaveText('All Accounts');
+
+    await page.getByRole('button', { name: 'Back' }).click();
+    await page.waitForURL(/\/budget/);
+    await expect(page.getByTestId('budget-table')).toBeVisible();
+  });
+
+  // ── Spec: Settings page regression ────────────────────────────────────
+
+  test('settings page has no enable/disable checkbox after enabling the feature flag', async () => {
+    await enablePayPeriodsFeatureFlag(settingsPage);
+
+    const payPeriodSettings = page.getByTestId('pay-period-settings');
+    await payPeriodSettings.waitFor({ state: 'visible' });
+
+    await expect(
+      payPeriodSettings.getByRole('checkbox', {
+        name: /enable pay period/i,
+      }),
+    ).not.toBeAttached();
+  });
+
+  test('settings page retains frequency selector and start date input', async () => {
+    await enablePayPeriodsFeatureFlag(settingsPage);
+
+    const payPeriodSettings = page.getByTestId('pay-period-settings');
+    await payPeriodSettings.waitFor({ state: 'visible' });
+
+    await expect(page.locator('#pay-period-frequency')).toBeVisible();
+    await expect(page.locator('#pay-period-start-date')).toBeVisible();
   });
 });

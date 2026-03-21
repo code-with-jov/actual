@@ -77,6 +77,31 @@ Active state visual: when `payPeriodsActive` is true, apply `color: theme.pageTe
 
 ---
 
+### D7: Budget engine must be reconnected on toggle (runtime bug)
+
+**Root cause**: Moving the toggle from Settings to the Budget page exposed a latent initialization gap. When the toggle lived in Settings, navigating away from the Budget page caused it to unmount and remount — `init()` re-ran on every visit, so `payPeriodConfig` was always fresh. With the toggle now on the Budget page, `init()` only runs once on mount. Two subsystems that depended on mount-time initialization are never told to re-initialize when the pref changes:
+
+1. **Server** (`preferences/app.ts`): `saveSyncedPrefs` updates `payPeriodConfig` in sheet meta but never calls `createAllBudgets(updatedConfig)`. Pay period budget sheets (`budget202613`, etc.) are never created. `envelope-budget-month` reads from a sheet that doesn't exist and returns 0 for all values — including `sum-amount-<catId>` (spent).
+
+2. **Client** (`budget/index.tsx`): The `init` effect runs once on mount. When pay periods are toggled, the `bounds` state (regular month IDs from the initial `get-budget-bounds` call) is never refreshed. `getValidMonth` clips any pay period ID to the regular-month `bounds.end`, making navigation to pay period months impossible. The spreadsheet prewarm cache also has no entries for pay period sheets.
+
+**Decision**:
+
+*Server*: In `saveSyncedPrefs`, after setting `sheet.meta().payPeriodConfig`, call `await budget.createAllBudgets(updatedConfig)`. This creates any missing pay period budget sheets before the response returns to the client.
+
+*Client*: In `budget/index.tsx`, add a `useEffectEvent` (`onPayPeriodConfigChange`) that re-runs `get-budget-bounds` + `setBounds` + `prewarmAllMonths`, and wire it to a `useEffect` that fires when `payPeriodConfig` changes. Guard with `if (!initialized) return` so it does not double-fire on the initial mount (where `init()` already handles setup).
+
+**Why `createAllBudgets` in `saveSyncedPrefs` rather than a separate handler**:
+`saveSyncedPrefs` is the single point where pay period prefs land on the server. Calling `createAllBudgets` there ensures sheets are ready before the pref-save response returns, so the client's subsequent `get-budget-bounds` call finds them. A separate handler (e.g., `refresh-budget-for-pay-periods`) would require an extra round trip from the client and a new handler registration.
+
+**Alternative considered — client triggers `get-budget-bounds` and relies on it calling `createAllBudgets`**: The client already calls `get-budget-bounds` → `createAllBudgets` on mount. We could make the client call it again after toggle (without the server fix). This avoids touching `preferences/app.ts`, but introduces a race: if `payPeriodConfig` in the server meta is updated by `saveSyncedPrefs` and then `get-budget-bounds` is called immediately, the server would call `createAllBudgets(payPeriodConfig)` with the new config — which should work. However, this relies on sequencing (pref save must complete before `get-budget-bounds`) which is guaranteed since the client awaits the pref save. Both approaches are valid; we prefer the server fix because it makes `saveSyncedPrefs` self-contained: any caller that changes a pay period pref gets sheets created automatically, not just the Budget page.
+
+**Alternative considered — eager creation on initial load only, lazy creation on toggle**: The server could create sheets lazily when `envelope-budget-month` is called with an unknown sheet ID. This avoids the explicit trigger entirely but requires `sheet.getCellValue` to handle a missing sheet by creating it on the fly — a larger change to the spreadsheet infrastructure. Not worth it for this scope.
+
+**Performance note**: On first enable, `useTogglePayPeriods` writes up to three prefs sequentially (`payPeriodStartDate`, `payPeriodFrequency`, `showPayPeriods`). Each triggers `saveSyncedPrefs` → `createAllBudgets`. The first two calls do minimal work because `payPeriodConfig.enabled` is still false until `showPayPeriods` is written — `getBudgetRange` without an enabled config generates regular month ranges that are already in `createdMonths`. Only the final `showPayPeriods = 'true'` call generates and creates new pay period sheets. Acceptable for the scope of this change.
+
+---
+
 ## Risks / Trade-offs
 
 - **Prop threading depth**: Toggle state threads through `DynamicBudgetTable → BudgetPageHeader → MonthPicker`. This is three levels but each step is a single prop pair — acceptable given existing patterns in the codebase.

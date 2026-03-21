@@ -13,7 +13,9 @@ import { BudgetPageHeader } from './BudgetPageHeader';
 import { BudgetTable } from './BudgetTable';
 import { usePayPeriodConfig } from './PayPeriodContext';
 
+import { useFeatureFlag } from '@desktop-client/hooks/useFeatureFlag';
 import { useGlobalPref } from '@desktop-client/hooks/useGlobalPref';
+import { useTogglePayPeriods } from '@desktop-client/hooks/useTogglePayPeriods';
 
 function getNumPossibleMonths(width: number, categoryWidth: number) {
   const estimatedTableWidth = width - categoryWidth;
@@ -53,6 +55,8 @@ const DynamicBudgetTable = ({
   const payPeriodConfig = usePayPeriodConfig();
   const [categoryExpandedStatePref] = useGlobalPref('categoryExpandedState');
   const categoryExpandedState = categoryExpandedStatePref ?? 0;
+  const isPayPeriodsEnabled = useFeatureFlag('payPeriodsEnabled');
+  const { payPeriodsActive, togglePayPeriods } = useTogglePayPeriods();
 
   const numPossible = getNumPossibleMonths(
     width,
@@ -144,6 +148,10 @@ const DynamicBudgetTable = ({
           numMonths={numMonths}
           monthBounds={monthBounds}
           onMonthSelect={_onMonthSelect}
+          onTogglePayPeriods={
+            isPayPeriodsEnabled ? togglePayPeriods : undefined
+          }
+          payPeriodsActive={isPayPeriodsEnabled ? payPeriodsActive : undefined}
         />
         <BudgetTable
           type={type}

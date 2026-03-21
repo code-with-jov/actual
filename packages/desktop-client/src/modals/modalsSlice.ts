@@ -68,6 +68,14 @@ export type Modal =
       };
     }
   | {
+      name: 'confirm-payees-merge';
+      options: {
+        payeeIds: string[];
+        targetPayeeId: string;
+        onConfirm: () => void;
+      };
+    }
+  | {
       name: 'load-backup';
       options: {
         budgetId?: string;
@@ -326,6 +334,7 @@ export type Modal =
         onCopyLastMonthAverage: () => void;
         onSetMonthsAverage: (numberOfMonths: number) => void;
         onApplyBudgetTemplate: () => void;
+        onEditNotes: (id: NoteEntity['id'], month: string) => void;
       };
     }
   | {
@@ -337,6 +346,7 @@ export type Modal =
         onCopyLastMonthAverage: () => void;
         onSetMonthsAverage: (numberOfMonths: number) => void;
         onApplyBudgetTemplate: () => void;
+        onEditNotes: (id: NoteEntity['id'], month: string) => void;
       };
     }
   | {
@@ -485,6 +495,8 @@ export type Modal =
         onAddCategoryGroup: () => void;
         onToggleHiddenCategories: () => void;
         onSwitchBudgetFile: () => void;
+        onTogglePayPeriods?: () => void;
+        payPeriodsActive?: boolean;
       };
     }
   | {

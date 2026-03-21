@@ -23,6 +23,8 @@ export function BudgetPageMenuModal({
   onAddCategoryGroup,
   onToggleHiddenCategories,
   onSwitchBudgetFile,
+  onTogglePayPeriods,
+  payPeriodsActive,
 }: BudgetPageMenuModalProps) {
   const defaultMenuItemStyle: CSSProperties = {
     ...styles.mobileMenuItem,
@@ -44,6 +46,8 @@ export function BudgetPageMenuModal({
             onAddCategoryGroup={onAddCategoryGroup}
             onToggleHiddenCategories={onToggleHiddenCategories}
             onSwitchBudgetFile={onSwitchBudgetFile}
+            onTogglePayPeriods={onTogglePayPeriods}
+            payPeriodsActive={payPeriodsActive}
           />
         </>
       )}
@@ -58,12 +62,16 @@ type BudgetPageMenuProps = Omit<
   onAddCategoryGroup: () => void;
   onToggleHiddenCategories: () => void;
   onSwitchBudgetFile: () => void;
+  onTogglePayPeriods?: () => void;
+  payPeriodsActive?: boolean;
 };
 
 function BudgetPageMenu({
   onAddCategoryGroup,
   onToggleHiddenCategories,
   onSwitchBudgetFile,
+  onTogglePayPeriods,
+  payPeriodsActive,
   ...props
 }: BudgetPageMenuProps) {
   const [showHiddenCategories] = useLocalPref('budget.showHiddenCategories');
@@ -81,6 +89,9 @@ function BudgetPageMenu({
         break;
       case 'switch-budget-file':
         onSwitchBudgetFile?.();
+        break;
+      case 'toggle-pay-periods':
+        onTogglePayPeriods?.();
         break;
       default:
         throw new Error(`Unrecognized menu item: ${name}`);
@@ -105,6 +116,16 @@ function BudgetPageMenu({
           name: 'switch-budget-file',
           text: t('Switch budget file'),
         },
+        ...(onTogglePayPeriods
+          ? [
+              {
+                name: 'toggle-pay-periods',
+                text: payPeriodsActive
+                  ? t('Disable pay period budgeting')
+                  : t('Enable pay period budgeting'),
+              },
+            ]
+          : []),
       ]}
     />
   );

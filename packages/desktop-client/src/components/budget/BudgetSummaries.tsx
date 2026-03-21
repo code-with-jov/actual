@@ -26,10 +26,13 @@ export function BudgetSummaries() {
   const [firstMonth] = months;
 
   const [widthState, setWidthState] = useState(0);
-  const [styles, spring] = useSpring(() => ({
-    x: 0,
-    config: { mass: 3, tension: 600, friction: 80 },
-  }));
+  const [styles, spring] = useSpring(
+    () => ({
+      from: { x: 0 },
+      config: { mass: 3, tension: 600, friction: 80 },
+    }),
+    [],
+  );
 
   const containerRef = useResizeObserver<HTMLDivElement>(
     useCallback(rect => {
@@ -43,7 +46,7 @@ export function BudgetSummaries() {
     all.unshift(subMonths(firstMonth, 1, payPeriodConfig));
     all.push(addMonths(months[months.length - 1], 1, payPeriodConfig));
     return all;
-  }, [months, firstMonth]);
+  }, [months, firstMonth, payPeriodConfig]);
   const monthWidth = widthState / months.length;
 
   useLayoutEffect(() => {
@@ -57,7 +60,9 @@ export function BudgetSummaries() {
     }
 
     const to = -offsetX;
-    void spring.start({ from: { x: from }, x: to });
+    if (from !== to) {
+      void spring.start({ from: { x: from }, to: { x: to } });
+    }
   }, [spring, firstMonth, monthWidth, allMonths]);
 
   useLayoutEffect(() => {
@@ -65,7 +70,7 @@ export function BudgetSummaries() {
   }, [firstMonth]);
 
   useLayoutEffect(() => {
-    void spring.start({ from: { x: -monthWidth }, to: { x: -monthWidth } });
+    void spring.start({ to: { x: -monthWidth }, immediate: true });
   }, [spring, monthWidth]);
 
   const { SummaryComponent } = useBudgetComponents();

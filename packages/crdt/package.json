@@ -8,6 +8,17 @@
   ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
   "scripts": {
     "build:node": "tsgo",
     "proto:generate": "./bin/generate-proto",
@@ -25,6 +36,6 @@
     "@typescript/native-preview": "^7.0.0-dev.20260309.1",
     "protoc-gen-js": "3.21.4-4",
     "ts-protoc-gen": "0.15.0",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.0"
   }
 }
