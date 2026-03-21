@@ -93,6 +93,72 @@
   - `onTogglePayPeriods: isPayPeriodsEnabled ? togglePayPeriods : undefined`
   - `payPeriodsActive: isPayPeriodsEnabled ? payPeriodsActive : undefined`
 
+## 10. Budget engine reconnection on toggle (Bug fix — D7)
+
+### 10.1 Server: `packages/loot-core/src/server/preferences/app.ts`
+
+- [x] 10.1.1 Add `import * as budget from '../budget/base'` (after existing imports, maintaining alphabetical order within the `../` group)
+- [x] 10.1.2 In `saveSyncedPrefs`, after `sheet.get().meta().payPeriodConfig = updatedConfig`, add `await budget.createAllBudgets(updatedConfig)` so pay period budget sheets are created before the response returns to the client
+
+### 10.2 Client: `packages/desktop-client/src/components/budget/index.tsx`
+
+- [x] 10.2.1 Add a `useEffectEvent` named `onPayPeriodConfigChange` that:
+  - Guards with `if (!initialized) return` to skip the initial mount (where `init()` already handles setup)
+  - Calls `get-budget-bounds` via `send`
+  - Calls `setBounds({ start, end })` with the returned pay period bounds
+  - Calls `prewarmAllMonths(budgetType, spreadsheet, { start, end }, startMonth, payPeriodConfig)`
+- [x] 10.2.2 Add a `useEffect` with `[payPeriodConfig]` as its dependency array that calls `onPayPeriodConfigChange()`
+
+### 10.3 Verification
+
+- [x] 10.3.1 Run `yarn typecheck` — fix any type errors introduced by the two new files touched
+- [x] 10.3.2 Run `yarn lint:fix`
+- [ ] 10.3.3 Manual test — toggle ON: navigate to the current pay period after enabling; verify `sum-amount-*` (spent) values are populated for all categories
+- [ ] 10.3.4 Manual test — toggle ON then OFF: verify bounds reset to regular months and spent values remain correct on the regular-month view
+- [ ] 10.3.5 Manual test — toggle ON while on a pay period month already selected: verify spent still populates (no double-init race)
+
+---
+
+## 11. Playwright test updates
+
+### 11.1 `pay-periods.test.ts` — Remove stale Settings-checkbox tests
+
+- [x] 11.1.1 Remove the `enable` option branch from `configurePayPeriods` (the `if (enable)` block and the `enable = true` default) — the helper should only set frequency and start date
+- [x] 11.1.2 Delete test: `shows validation error when enabling pay periods without a start date` — checkbox no longer exists in Settings
+- [x] 11.1.3 Delete test: `can enable pay periods with frequency and start date configured` — this checked `checkbox.isChecked()` in Settings; the toggle is now on the Budget page
+- [x] 11.1.4 Add helper `enablePayPeriodsOnBudgetPage(page: Page)` that clicks the `aria-label="Toggle pay period budgeting"` button in MonthPicker and waits for PP-format header labels to appear
+- [x] 11.1.5 Update `Budget page with pay periods enabled` `beforeEach`: replace `configurePayPeriods(page, { enable: true })` with `configurePayPeriods(page, { frequencyLabel: 'Biweekly (every 2 weeks)', startDate: '2024-01-01' })`, navigate to the Budget page, then call `enablePayPeriodsOnBudgetPage(page)`
+
+### 11.2 `pay-periods.test.ts` — New toggle-button tests (desktop)
+
+- [x] 11.2.1 Add test: `toggle button is absent when feature flag is OFF` — navigate to budget page without enabling the flag; assert `page.getByRole('button', { name: 'Toggle pay period budgeting' })` is not visible
+- [x] 11.2.2 Add test: `toggle button is visible when feature flag is ON` — enable feature flag, navigate to budget, assert the toggle button is visible
+- [x] 11.2.3 Add test: `clicking toggle ON activates pay period labels` — enable flag, configure frequency + start date in settings, navigate to budget, click toggle, assert first budget month header matches `/PP\d+/`
+- [x] 11.2.4 Add test: `clicking toggle OFF restores calendar month labels` — from active state, click toggle again, assert header no longer matches `/PP\d+/` and matches regular month format
+- [x] 11.2.5 Add test: `spent cells are populated after toggling ON` — after toggling ON (using demo test file), assert that the `category-month-spent` cells in the budget table are not all empty; at least one should contain a non-zero value
+- [x] 11.2.6 Add test: `clicking a spent cell after toggling ON opens the transactions page` — from active state, click first `category-month-spent` cell, `waitForURL(/\/accounts/)`, assert `account-name` heading shows "All Accounts", click Back, assert `/budget` and budget table visible
+
+### 11.3 `pay-periods.test.ts` — Settings page regression
+
+- [x] 11.3.1 Add test: `settings page has no enable/disable checkbox after enabling the feature flag` — enable flag, navigate to settings, assert `payPeriodSettings.getByRole('checkbox', { name: /enable pay period/i })` does not exist
+- [x] 11.3.2 Add test: `settings page retains frequency selector and start date input` — enable flag, navigate to settings, assert `#pay-period-frequency` and `#pay-period-start-date` are visible
+
+### 11.4 `pay-periods.mobile.test.ts` — Remove stale Settings-checkbox setup
+
+- [x] 11.4.1 Remove the `enable` option branch from the local `configurePayPeriods` copy in the mobile test file — same change as 11.1.1 but applied to the duplicate helper
+- [x] 11.4.2 Add helper `enablePayPeriodsOnMobileBudgetPage(page: Page, budgetPage: MobileBudgetPage)` that calls `budgetPage.openBudgetPageMenu()`, clicks `getByText('Enable pay period budgeting')`, and waits for PP-format labels in the heading
+- [x] 11.4.3 Update `Mobile Pay Periods (enabled)` `beforeEach`: remove `enable: true` from `configurePayPeriods` call; after navigating to the budget page, call `enablePayPeriodsOnMobileBudgetPage(page, budgetPage)`
+
+### 11.5 `pay-periods.mobile.test.ts` — New mobile toggle tests
+
+- [x] 11.5.1 Add test: `budget page menu has no toggle item when feature flag is OFF` — open budget page menu without enabling the flag, assert `getByText(/pay period budgeting/i)` is not visible in the menu
+- [x] 11.5.2 Add test: `budget page menu shows "Enable pay period budgeting" when flag is ON and periods are inactive` — enable flag, configure settings (no enable), open budget page menu, assert "Enable pay period budgeting" item is visible
+- [x] 11.5.3 Add test: `tapping enable in mobile menu activates pay period labels` — enable flag, configure settings, open budget page menu, tap "Enable pay period budgeting", assert heading matches `/PP\d+/`
+- [x] 11.5.4 Add test: `budget page menu shows "Disable pay period budgeting" when periods are active` — from active state, open budget page menu, assert "Disable pay period budgeting" item is visible
+- [x] 11.5.5 Add test: `tapping disable in mobile menu restores calendar month labels` — from active state, open budget page menu, tap "Disable pay period budgeting", assert heading no longer matches `/PP\d+/`
+
+---
+
 ## 9. Verification
 
 - [x] 9.1 Run `yarn typecheck` — fix any type errors introduced

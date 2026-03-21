@@ -30,7 +30,8 @@ _(none)_
 - `packages/desktop-client/src/modals/modalsSlice.ts` — add `onTogglePayPeriods` to `budget-page-menu` options type
 - `packages/desktop-client/src/components/modals/BudgetPageMenuModal.tsx` — add `toggle-pay-periods` menu item
 - `packages/desktop-client/src/components/mobile/budget/BudgetPage.tsx` — call hook, pass to `onOpenBudgetPageMenu`
-- No engine, server, data-model, or feature flag changes
+- `packages/loot-core/src/server/preferences/app.ts` — call `createAllBudgets(updatedConfig)` after updating `payPeriodConfig` in sheet meta so pay period budget sheets are created on toggle (see D7)
+- `packages/desktop-client/src/components/budget/index.tsx` — re-run bounds fetch and spreadsheet prewarm when `payPeriodConfig` changes so the client navigates correctly after toggle (see D7)
 
 ## Non-Goals
 

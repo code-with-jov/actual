@@ -8,6 +8,7 @@ import type {
   SyncedPrefs,
 } from '../../types/prefs';
 import { createApp } from '../app';
+import * as budget from '../budget/base';
 import * as db from '../db';
 import { PostError } from '../errors';
 import { getDefaultDocumentDir } from '../main';
@@ -85,6 +86,7 @@ async function saveSyncedPrefs({
   if (PAY_PERIOD_PREF_KEYS.has(id) && sheet.get()) {
     const updatedConfig = await loadPayPeriodConfig();
     sheet.get().meta().payPeriodConfig = updatedConfig;
+    await budget.createAllBudgets(updatedConfig);
   }
 }
 

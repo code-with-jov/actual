@@ -66,7 +66,10 @@ export function Budget() {
     'budget.summaryCollapsed',
   );
   const [startMonthPref, setStartMonthPref] = useLocalPref('budget.startMonth');
-  const startMonth = startMonthPref || currentMonth;
+  const startMonth =
+    !payPeriodConfig.enabled && isPayPeriod(startMonthPref)
+      ? monthUtils.currentMonth()
+      : startMonthPref || currentMonth;
   const [bounds, setBounds] = useState({
     start: startMonth,
     end: startMonth,
@@ -106,6 +109,23 @@ export function Budget() {
     });
   });
   useEffect(() => loadBoundBudgets(), []);
+
+  const onPayPeriodConfigChange = useEffectEvent(() => {
+    if (!initialized) return;
+    async function run() {
+      const { start, end } = await send('get-budget-bounds');
+      setBounds({ start, end });
+      await prewarmAllMonths(
+        budgetType,
+        spreadsheet,
+        { start, end },
+        startMonth,
+        payPeriodConfig,
+      );
+    }
+    void run();
+  });
+  useEffect(() => onPayPeriodConfigChange(), [payPeriodConfig]);
 
   const onMonthSelect = async (month, numDisplayed) => {
     setStartMonthPref(month);

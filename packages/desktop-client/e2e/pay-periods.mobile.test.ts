@@ -29,14 +29,9 @@ async function configurePayPeriods(
   opts: {
     frequencyLabel?: string;
     startDate?: string;
-    enable?: boolean;
   } = {},
 ) {
-  const {
-    frequencyLabel = 'Biweekly (every 2 weeks)',
-    startDate,
-    enable = true,
-  } = opts;
+  const { frequencyLabel = 'Biweekly (every 2 weeks)', startDate } = opts;
 
   const payPeriodSettings = page.getByTestId('pay-period-settings');
   await payPeriodSettings.waitFor({ state: 'visible' });
@@ -46,15 +41,19 @@ async function configurePayPeriods(
   if (startDate) {
     await payPeriodSettings.locator('#pay-period-start-date').fill(startDate);
   }
+}
 
-  if (enable) {
-    const checkbox = payPeriodSettings.getByRole('checkbox', {
-      name: 'Enable pay period budgeting',
-    });
-    if (!(await checkbox.isChecked())) {
-      await checkbox.click();
-    }
-  }
+/**
+ * Enable pay periods via the budget page menu on mobile.
+ * Assumes the budget page is already open and the feature flag is ON.
+ */
+async function enablePayPeriodsOnMobileBudgetPage(
+  page: Page,
+  budgetPage: MobileBudgetPage,
+) {
+  await budgetPage.openBudgetPageMenu();
+  await page.getByText('Enable pay period budgeting', { exact: true }).click();
+  await expect(budgetPage.heading).toHaveText(/PP\d+/, { timeout: 5000 });
 }
 
 async function enablePayPeriodsFeatureFlag(settingsPage: SettingsPage) {
@@ -83,10 +82,10 @@ test.describe('Mobile Pay Periods (enabled)', () => {
     await configurePayPeriods(page, {
       frequencyLabel: 'Biweekly (every 2 weeks)',
       startDate: '2024-01-01',
-      enable: true,
     });
 
     budgetPage = await navigation.goToBudgetPage();
+    await enablePayPeriodsOnMobileBudgetPage(page, budgetPage);
   });
 
   test.afterEach(async () => {
@@ -221,5 +220,117 @@ test.describe('Mobile Pay Periods (disabled)', () => {
 
     await expect(budgetPage.heading).toHaveText(expectedLabel);
     await expect(budgetPage.heading).not.toHaveText(/\(PP\d+\)/);
+  });
+});
+
+// ── Mobile toggle menu item tests ──────────────────────────────────────────────
+
+test.describe('Mobile Pay Periods toggle menu', () => {
+  let page: Page;
+  let navigation: MobileNavigation;
+  let configurationPage: ConfigurationPage;
+
+  test.beforeEach(async ({ browser }) => {
+    page = await browser.newPage();
+    navigation = new MobileNavigation(page);
+    configurationPage = new ConfigurationPage(page);
+
+    await page.setViewportSize({ width: 350, height: 600 });
+    await page.goto('/');
+    await configurationPage.createTestFile();
+  });
+
+  test.afterEach(async () => {
+    await page?.close();
+  });
+
+  // ── Spec: No toggle item when feature flag is OFF ───────────────────────────
+
+  test('budget page menu has no toggle item when feature flag is OFF', async () => {
+    const budgetPage = await navigation.goToBudgetPage();
+    await budgetPage.openBudgetPageMenu();
+
+    await expect(
+      page.getByText(/pay period budgeting/i),
+    ).not.toBeVisible();
+
+    await page.keyboard.press('Escape');
+  });
+
+  // ── Spec: Enable item present when flag ON and periods inactive ─────────────
+
+  test('budget page menu shows "Enable pay period budgeting" when flag is ON and periods are inactive', async () => {
+    const settingsPage = await navigation.goToSettingsPage();
+    await enablePayPeriodsFeatureFlag(settingsPage);
+    await configurePayPeriods(page, {
+      frequencyLabel: 'Biweekly (every 2 weeks)',
+      startDate: '2024-01-01',
+    });
+
+    const budgetPage = await navigation.goToBudgetPage();
+    await budgetPage.openBudgetPageMenu();
+
+    await expect(
+      page.getByText('Enable pay period budgeting', { exact: true }),
+    ).toBeVisible();
+
+    await page.keyboard.press('Escape');
+  });
+
+  // ── Spec: Tapping enable activates pay period labels ───────────────────────
+
+  test('tapping enable in mobile menu activates pay period labels', async () => {
+    const settingsPage = await navigation.goToSettingsPage();
+    await enablePayPeriodsFeatureFlag(settingsPage);
+    await configurePayPeriods(page, {
+      frequencyLabel: 'Biweekly (every 2 weeks)',
+      startDate: '2024-01-01',
+    });
+
+    const budgetPage = await navigation.goToBudgetPage();
+    await enablePayPeriodsOnMobileBudgetPage(page, budgetPage);
+
+    await expect(budgetPage.heading).toHaveText(/PP\d+/);
+  });
+
+  // ── Spec: Disable item present when periods are active ─────────────────────
+
+  test('budget page menu shows "Disable pay period budgeting" when periods are active', async () => {
+    const settingsPage = await navigation.goToSettingsPage();
+    await enablePayPeriodsFeatureFlag(settingsPage);
+    await configurePayPeriods(page, {
+      frequencyLabel: 'Biweekly (every 2 weeks)',
+      startDate: '2024-01-01',
+    });
+
+    const budgetPage = await navigation.goToBudgetPage();
+    await enablePayPeriodsOnMobileBudgetPage(page, budgetPage);
+
+    await budgetPage.openBudgetPageMenu();
+
+    await expect(
+      page.getByText('Disable pay period budgeting', { exact: true }),
+    ).toBeVisible();
+
+    await page.keyboard.press('Escape');
+  });
+
+  // ── Spec: Tapping disable restores calendar month labels ───────────────────
+
+  test('tapping disable in mobile menu restores calendar month labels', async () => {
+    const settingsPage = await navigation.goToSettingsPage();
+    await enablePayPeriodsFeatureFlag(settingsPage);
+    await configurePayPeriods(page, {
+      frequencyLabel: 'Biweekly (every 2 weeks)',
+      startDate: '2024-01-01',
+    });
+
+    const budgetPage = await navigation.goToBudgetPage();
+    await enablePayPeriodsOnMobileBudgetPage(page, budgetPage);
+
+    await budgetPage.openBudgetPageMenu();
+    await page.getByText('Disable pay period budgeting', { exact: true }).click();
+
+    await expect(budgetPage.heading).not.toHaveText(/PP\d+/);
   });
 });
