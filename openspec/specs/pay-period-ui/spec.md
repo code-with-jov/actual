@@ -52,12 +52,15 @@ When pay periods are enabled, the budget page's month navigation (previous/next 
 
 ### Requirement: Pay period display names
 
-When a pay period ID is displayed in the budget UI, it SHALL be formatted as a human-readable label. The system SHALL support two formats:
+When a pay period ID is displayed in the budget UI, it SHALL be formatted as a human-readable label. The system SHALL support three formats:
 
 - **Picker format** (MonthPicker): `{monthLetter}{withinMonthCount}` — the first character of the start month's locale-aware three-letter abbreviation, followed by the 1-based count of pay periods whose start date falls within that same calendar month. Examples: `J1`, `J2`, `F1`, `D2`.
-- **Summary format** (BudgetSummary): `{startDate} - {endDate} (PP{globalN})` — the period's actual date range using `MMM d` formatting, followed by the global 1-based period index in parentheses. Examples: `Jan 5 - Jan 18 (PP1)`, `Jan 19 - Feb 1 (PP2)`.
+- **Short format** (mobile headers and labels): `{startDate} - {endDate}` — the period's actual date range using `MMM d` formatting, without the period number suffix. Examples: `Jan 5 - Jan 18`, `Jan 19 - Feb 1`. Used on mobile where horizontal space is constrained.
+- **Summary format** (desktop BudgetSummary): `{startDate} - {endDate} (PP{globalN})` — the period's actual date range using `MMM d` formatting, followed by the global 1-based period index in parentheses. Examples: `Jan 5 - Jan 18 (PP1)`, `Jan 19 - Feb 1 (PP2)`.
 
-The `getPayPeriodLabel` function SHALL accept a `format` parameter of type `'picker' | 'summary'` (replacing the previous `short: boolean`). Both formats SHALL call `generatePayPeriods` to resolve actual dates. An optional `locale` parameter SHALL be accepted and forwarded to date formatting for localisation-safe month letters.
+The `getPayPeriodLabel` function SHALL accept a `format` parameter of type `'picker' | 'short' | 'summary'` (replacing the previous `short: boolean`). All formats SHALL call `generatePayPeriods` to resolve actual dates. An optional `locale` parameter SHALL be accepted and forwarded to date formatting for localisation-safe month letters.
+
+Mobile surfaces (the `MonthSelector` header, category group row labels in `BudgetPage.tsx`, and the `CategoryPage` header) SHALL use `'short'` format. Desktop surfaces SHALL continue using `'summary'` format.
 
 The within-month count for the picker format is determined by: taking all periods whose start date falls in the same calendar month as the target period, sorted by start date, and finding the target period's 1-based position in that sequence.
 
@@ -80,6 +83,16 @@ The within-month count for the picker format is determined by: taking all period
 
 - **WHEN** a period starts on Jan 28 and ends on Feb 10
 - **THEN** its picker label is based on January (e.g., `J3`) not February
+
+#### Scenario: Short label for a period within a single month
+
+- **WHEN** period `2024-13` covers Jan 5–18 and is the 1st period of the year
+- **THEN** its short label is `Jan 5 - Jan 18`
+
+#### Scenario: Short label for a period spanning two months
+
+- **WHEN** a period covers Jan 19–Feb 1 and is the 2nd period of the year
+- **THEN** its short label is `Jan 19 - Feb 1`
 
 #### Scenario: Summary label for a period within a single month
 

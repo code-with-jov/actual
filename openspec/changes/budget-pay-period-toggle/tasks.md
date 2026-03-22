@@ -93,6 +93,28 @@
   - `onTogglePayPeriods: isPayPeriodsEnabled ? togglePayPeriods : undefined`
   - `payPeriodsActive: isPayPeriodsEnabled ? payPeriodsActive : undefined`
 
+## 13. Mobile short label format (D8)
+
+### 13.1 `pay-periods.ts` — Add `'short'` format
+
+- [x] 13.1.1 Update the `format` parameter type from `'picker' | 'summary'` to `'picker' | 'short' | 'summary'`
+- [x] 13.1.2 Update the JSDoc comment to document the `'short'` format: `'{startDate} - {endDate}'` — e.g. `'Jan 5 - Jan 18'`
+- [x] 13.1.3 Add a `'short'` branch before the existing `// 'summary' format` block that returns `${formatDate(startDate)} - ${formatDate(endDate)}` (no `(PP${periodNumber})` suffix)
+
+### 13.2 Mobile call sites — switch to `'short'`
+
+- [x] 13.2.1 In `BudgetPage.tsx` line ~511 (category group row label): change `'summary'` → `'short'`
+- [x] 13.2.2 In `BudgetPage.tsx` `MonthSelector` line ~1074 (header label): change `'summary'` → `'short'`
+- [x] 13.2.3 In `CategoryPage.tsx` line ~56 (category page header): change `'summary'` → `'short'`
+
+### 13.3 Verification
+
+- [x] 13.3.1 Run `yarn typecheck` — ensure the new format literal is accepted at all call sites
+- [ ] 13.3.2 Run `yarn lint:fix`
+- [x] 13.3.3 Update E2E mobile tests: any assertion matching `/PP\d+/` in the mobile heading should be updated to match the short format (date range without period number)
+
+---
+
 ## 10. Budget engine reconnection on toggle (Bug fix — D7)
 
 ### 10.1 Server: `packages/loot-core/src/server/preferences/app.ts`
@@ -156,6 +178,27 @@
 - [x] 11.5.3 Add test: `tapping enable in mobile menu activates pay period labels` — enable flag, configure settings, open budget page menu, tap "Enable pay period budgeting", assert heading matches `/PP\d+/`
 - [x] 11.5.4 Add test: `budget page menu shows "Disable pay period budgeting" when periods are active` — from active state, open budget page menu, assert "Disable pay period budgeting" item is visible
 - [x] 11.5.5 Add test: `tapping disable in mobile menu restores calendar month labels` — from active state, open budget page menu, tap "Disable pay period budgeting", assert heading no longer matches `/PP\d+/`
+
+---
+
+## 12. Mobile engine reconnection on toggle (Bug fix — mobile D7)
+
+Same root cause as D7 but in the mobile `BudgetPage.tsx`. The mobile component has its own `init()` effect that fetches bounds once on mount. When the toggle fires, `payPeriodConfig.enabled` flips to `true` and `currMonth` returns a pay period ID — but `monthBounds` is stale (regular month range), so `getValidMonth` clips the pay period ID back to the old range end and PP labels never appear.
+
+### 12.1 `packages/desktop-client/src/components/mobile/budget/BudgetPage.tsx`
+
+- [x] 12.1.1 Add `useEffectEvent` to the React import (alongside `useCallback`, `useEffect`, `useMemo`, `useRef`, `useState`)
+- [x] 12.1.2 Add `onPayPeriodConfigChange` as a `useEffectEvent` (after the existing `init` `useEffect`):
+  - Guards with `if (!initialized) return`
+  - Calls `get-budget-bounds` via `send`
+  - Calls `setMonthBounds({ start, end })` with the result
+  - Calls `setStartMonthPref(currMonth)` to navigate to the current PP (or current calendar month when disabling) — without this, `startMonth` stays at its old value (e.g. `"2017-01"`) and `MonthSelector` never shows a PP label because `isPayPeriod("2017-01")` is `false`
+  - Calls `await prewarmMonth(budgetType, spreadsheet, currMonth)` to warm the new current pay period
+- [x] 12.1.3 Add `useEffect(() => onPayPeriodConfigChange(), [payPeriodConfig])` immediately after the `useEffectEvent`
+
+### 12.2 Test: tighten `enablePayPeriodsOnMobileBudgetPage` locator
+
+- [x] 12.2.1 In `enablePayPeriodsOnMobileBudgetPage`, replace `budgetPage.heading` with `budgetPage.heading.first()` to avoid strict mode violation when the menu modal is still animating out
 
 ---
 

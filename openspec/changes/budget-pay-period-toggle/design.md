@@ -75,6 +75,20 @@ Active state visual: when `payPeriodsActive` is true, apply `color: theme.pageTe
 
 **Note on `frequencyWarning`**: The warning "Changing frequency will reset period numbering" was previously shown when periods are enabled. Since `enabled` state is removed, check `showPayPeriods === 'true'` directly from the pref instead. The warning logic itself is unchanged.
 
+### D8: Mobile uses `'short'` label format — no `(PPX)` suffix
+
+**Decision**: Add a `'short'` format to `getPayPeriodLabel` in `pay-periods.ts`. The short format returns `{startDate} - {endDate}` (e.g. `Jan 5 - Jan 18`) with no period-number suffix. All three mobile call sites pass `'short'` instead of `'summary'`:
+
+- `BudgetPage.tsx` line 511 — category group row labels
+- `BudgetPage.tsx` `MonthSelector` — header label
+- `CategoryPage.tsx` — category page header
+
+Desktop call sites continue to pass `'summary'` unchanged.
+
+**Rationale**: The mobile header bar has a logo button on the left and a calendar button on the right, leaving only the center strip for the title. With the existing `'summary'` format (`Jan 5 - Jan 18 (PP1)`), the ~6-character `(PP1)` suffix causes the label to overflow or truncate on small screens. The period number is supplemental information — users already know they're in pay period mode — so omitting it on mobile is a clean trade-off. Adding a dedicated `'short'` format keeps the function expressive and avoids mobile-specific string manipulation at call sites.
+
+**Alternative considered**: String-manipulate the summary label at call sites (e.g., `label.replace(/\s+\(PP\d+\)$/, '')`). Rejected — fragile, locale-dependent, and leaks knowledge of the format string into every mobile component.
+
 ---
 
 ### D7: Budget engine must be reconnected on toggle (runtime bug)

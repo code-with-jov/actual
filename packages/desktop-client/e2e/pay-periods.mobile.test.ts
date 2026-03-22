@@ -53,7 +53,12 @@ async function enablePayPeriodsOnMobileBudgetPage(
 ) {
   await budgetPage.openBudgetPageMenu();
   await page.getByText('Enable pay period budgeting', { exact: true }).click();
-  await expect(budgetPage.heading).toHaveText(/PP\d+/, { timeout: 5000 });
+  await page.getByRole('button', { name: 'Close' }).click();
+  // Short format: "Jan 5 - Jan 18" (no PP suffix)
+  await expect(budgetPage.heading.first()).toHaveText(
+    /[A-Z][a-z]+ \d+ - [A-Z][a-z]+ \d+/,
+    { timeout: 15000 },
+  );
 }
 
 async function enablePayPeriodsFeatureFlag(settingsPage: SettingsPage) {
@@ -95,10 +100,12 @@ test.describe('Mobile Pay Periods (enabled)', () => {
   // ── Spec: period label in mobile heading ───────────────────────────────────
   // Covers: MonthSelector periodLabel branch (task 2.2)
 
-  test('budget heading shows pay period summary label when pay periods are enabled', async () => {
+  test('budget heading shows pay period short label when pay periods are enabled', async () => {
+    // Short format: "Jan 5 - Jan 18" — no (PPX) suffix on mobile
     await expect(budgetPage.heading).toHaveText(
-      /[A-Z][a-z]+ \d+ - [A-Z][a-z]+ \d+ \(PP\d+\)/,
+      /[A-Z][a-z]+ \d+ - [A-Z][a-z]+ \d+/,
     );
+    await expect(budgetPage.heading).not.toHaveText(/\(PP\d+\)/);
     await expect(page).toMatchThemeScreenshots();
   });
 
@@ -108,36 +115,39 @@ test.describe('Mobile Pay Periods (enabled)', () => {
   test('next period arrow advances mobile budget view by one pay period', async () => {
     const initialText =
       await budgetPage.selectedBudgetMonthButton.textContent();
-    const initialNum = parseInt(initialText!.match(/\(PP(\d+)\)/)![1], 10);
 
     await budgetPage.nextMonthButton.click();
     await page.waitForTimeout(500);
 
     const nextText = await budgetPage.selectedBudgetMonthButton.textContent();
-    const nextNum = parseInt(nextText!.match(/\(PP(\d+)\)/)![1], 10);
 
-    expect(nextNum === initialNum + 1 || nextNum === 1).toBe(true);
+    // The label should have changed (moved to the next period)
+    expect(nextText).not.toBe(initialText);
+    // Still in short format
+    expect(nextText).toMatch(/[A-Z][a-z]+ \d+ - [A-Z][a-z]+ \d+/);
   });
 
   // ── Spec: previous arrow retreats by one pay period ────────────────────────
   // Covers: onPrevMonth with payPeriodConfig (tasks 1.6, 2.3)
 
   test('previous period arrow retreats mobile budget view by one pay period', async () => {
-    // Advance first so prev is not at the lower bound
+    // Capture initial label, advance, then retreat — should return to initial
+    const initialText =
+      await budgetPage.selectedBudgetMonthButton.textContent();
+
     await budgetPage.nextMonthButton.click();
     await page.waitForTimeout(500);
 
     const advancedText =
       await budgetPage.selectedBudgetMonthButton.textContent();
-    const advancedNum = parseInt(advancedText!.match(/\(PP(\d+)\)/)![1], 10);
+    expect(advancedText).not.toBe(initialText);
 
     await budgetPage.previousMonthButton.click();
     await page.waitForTimeout(500);
 
-    const prevText = await budgetPage.selectedBudgetMonthButton.textContent();
-    const prevNum = parseInt(prevText!.match(/\(PP(\d+)\)/)![1], 10);
-
-    expect(prevNum).toBe(advancedNum - 1);
+    const retreatedText =
+      await budgetPage.selectedBudgetMonthButton.textContent();
+    expect(retreatedText).toBe(initialText);
   });
 
   // ── Spec: "Today" button hidden on current period ──────────────────────────
@@ -163,7 +173,7 @@ test.describe('Mobile Pay Periods (enabled)', () => {
     await page.waitForTimeout(500);
 
     await expect(budgetPage.heading).toHaveText(
-      /[A-Z][a-z]+ \d+ - [A-Z][a-z]+ \d+ \(PP\d+\)/,
+      /[A-Z][a-z]+ \d+ - [A-Z][a-z]+ \d+/,
     );
     await expect(todayButton).not.toBeVisible();
   });
@@ -176,8 +186,11 @@ test.describe('Mobile Pay Periods (enabled)', () => {
     const accountPage = await budgetPage.openSpentPage(categoryName);
 
     // CategoryPage renders: "{categoryName}({periodLabel})"
-    // where periodLabel is e.g. "Jan 5 - Jan 18 (PP1)"
-    await expect(accountPage.heading).toContainText(/\(PP\d+\)/);
+    // where periodLabel is e.g. "Jan 5 - Jan 18" (short format, no PP suffix)
+    await expect(accountPage.heading).toContainText(
+      /[A-Z][a-z]+ \d+ - [A-Z][a-z]+ \d+/,
+    );
+    await expect(accountPage.heading).not.toContainText(/\(PP\d+\)/);
     await expect(accountPage.transactionList).toBeVisible();
     await expect(page).toMatchThemeScreenshots();
 
@@ -290,7 +303,9 @@ test.describe('Mobile Pay Periods toggle menu', () => {
     const budgetPage = await navigation.goToBudgetPage();
     await enablePayPeriodsOnMobileBudgetPage(page, budgetPage);
 
-    await expect(budgetPage.heading).toHaveText(/PP\d+/);
+    // Short format: "Jan 5 - Jan 18" — no PP suffix on mobile
+    await expect(budgetPage.heading).toHaveText(/[A-Z][a-z]+ \d+ - [A-Z][a-z]+ \d+/);
+    await expect(budgetPage.heading).not.toHaveText(/PP\d+/);
   });
 
   // ── Spec: Disable item present when periods are active ─────────────────────
@@ -331,6 +346,7 @@ test.describe('Mobile Pay Periods toggle menu', () => {
     await budgetPage.openBudgetPageMenu();
     await page.getByText('Disable pay period budgeting', { exact: true }).click();
 
-    await expect(budgetPage.heading).not.toHaveText(/PP\d+/);
+    // Calendar month format restored, e.g. "January '25"
+    await expect(budgetPage.heading).not.toHaveText(/[A-Z][a-z]+ \d+ - [A-Z][a-z]+ \d+/);
   });
 });

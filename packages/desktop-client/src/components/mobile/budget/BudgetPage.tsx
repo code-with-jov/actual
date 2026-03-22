@@ -2,6 +2,7 @@
 import React, {
   useCallback,
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -141,6 +142,18 @@ export function BudgetPage() {
 
     void init();
   }, [budgetType, startMonth, dispatch, spreadsheet]);
+
+  const onPayPeriodConfigChange = useEffectEvent(() => {
+    if (!initialized) return;
+    async function run() {
+      const { start, end } = await send('get-budget-bounds');
+      setMonthBounds({ start, end });
+      setStartMonthPref(currMonth);
+      await prewarmMonth(budgetType, spreadsheet, currMonth);
+    }
+    void run();
+  });
+  useEffect(() => onPayPeriodConfigChange(), [payPeriodConfig]);
 
   const onBudgetAction = useCallback(
     async (month, type, args) => {
@@ -495,7 +508,7 @@ export function BudgetPage() {
               id: `budget-${month}`,
               name:
                 isPayPeriod(month) && payPeriodConfig.enabled
-                  ? getPayPeriodLabel(month, payPeriodConfig, 'summary', locale)
+                  ? getPayPeriodLabel(month, payPeriodConfig, 'short', locale)
                   : monthUtils.format(month, "MMMM ''yy", locale),
               onSave: onSaveNotes,
             },
@@ -1058,7 +1071,7 @@ function MonthSelector({
 
   const periodLabel =
     isPayPeriod(month) && payPeriodConfig?.enabled
-      ? getPayPeriodLabel(month, payPeriodConfig, 'summary', locale)
+      ? getPayPeriodLabel(month, payPeriodConfig, 'short', locale)
       : monthUtils.format(month, "MMMM ''yy", locale);
 
   const arrowButtonStyle = {
