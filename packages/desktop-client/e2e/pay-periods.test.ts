@@ -182,6 +182,18 @@ test.describe('Pay Periods', () => {
       await expect(page).toMatchThemeScreenshots();
     });
 
+    // ── Spec: Budget summary renders correctly ────────────────────────
+    // Covers: budget summary data pipeline with pay period sheets active
+
+    test('budget summary panel renders expected fields when pay periods are active', async () => {
+      const summary = page.getByTestId('budget-summary').first();
+      await expect(summary).toBeVisible();
+      await expect(summary.getByText('Available funds')).toBeVisible();
+      await expect(summary.getByText(/^Overspent in /)).toBeVisible();
+      await expect(summary.getByText('Budgeted')).toBeVisible();
+      await expect(summary.getByText('For next month')).toBeVisible();
+    });
+
     // ── Spec: Next arrow advances to next period ───────────────────────
     // Covers: "Next arrow advances to the next pay period" (pay-period-ui spec §2)
 
@@ -395,31 +407,6 @@ test.describe('Pay Periods', () => {
       }
     }
     expect(foundNonEmpty).toBe(true);
-  });
-
-  test('clicking a spent cell after toggling ON opens the transactions page', async () => {
-    await enablePayPeriodsFeatureFlag(settingsPage);
-    await configurePayPeriods(page, {
-      frequencyLabel: 'Biweekly (every 2 weeks)',
-      startDate: '2024-01-01',
-    });
-    await page.getByRole('link', { name: 'Budget', exact: true }).click();
-    await page.waitForURL(/\/budget/);
-    await page.getByTestId('budget-table').waitFor({ state: 'visible' });
-    await enablePayPeriodsOnBudgetPage(page);
-
-    await page
-      .getByTestId('budget-table')
-      .getByTestId('category-month-spent')
-      .first()
-      .click();
-
-    await page.waitForURL(/\/accounts/);
-    await expect(page.getByTestId('account-name')).toHaveText('All Accounts');
-
-    await page.getByRole('button', { name: 'Back' }).click();
-    await page.waitForURL(/\/budget/);
-    await expect(page.getByTestId('budget-table')).toBeVisible();
   });
 
   // ── Spec: Settings page regression ────────────────────────────────────

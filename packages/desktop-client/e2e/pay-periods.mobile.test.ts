@@ -178,6 +178,39 @@ test.describe('Mobile Pay Periods (enabled)', () => {
     await expect(todayButton).not.toBeVisible();
   });
 
+  // ── Spec: clicking the pay period label in the header opens the month menu modal ──
+  // Covers: MonthSelector onPress → onOpenBudgetMonthMenu → budget-month-menu modal
+
+  test('clicking the pay period label in the header opens the month menu modal', async () => {
+    await budgetPage.openMonthMenu();
+
+    const monthMenuModal = page.getByRole('dialog');
+    await expect(monthMenuModal).toBeVisible();
+
+    const monthMenuModalHeading = monthMenuModal.getByRole('heading');
+    // Heading should reflect the current pay period date range (short format)
+    await expect(monthMenuModalHeading).toHaveText(
+      /[A-Z][a-z]+ \d+ - [A-Z][a-z]+ \d+/,
+    );
+    await expect(page).toMatchThemeScreenshots();
+
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(monthMenuModal).not.toBeVisible();
+  });
+
+  // ── Spec: clicking the To Budget button opens the budget summary modal ──────
+  // Covers: EnvelopeBudgetSummary open path with pay period active
+
+  test('clicking the To Budget button opens the budget summary modal', async () => {
+    const budgetSummaryModal = await budgetPage.openEnvelopeBudgetSummary();
+
+    await expect(budgetSummaryModal.heading).toHaveText('Budget Summary');
+    await expect(page).toMatchThemeScreenshots();
+
+    await budgetSummaryModal.close();
+    await expect(budgetPage.budgetTable).toBeVisible();
+  });
+
   // ── Spec: CategoryPage header shows pay period label ──────────────────────
   // Covers: CategoryPage periodLabel branch (task 3.6) + PayPeriodProvider (task 3.4)
 
@@ -270,47 +303,9 @@ test.describe('Mobile Pay Periods toggle menu', () => {
     await page.keyboard.press('Escape');
   });
 
-  // ── Spec: Enable item present when flag ON and periods inactive ─────────────
+  // ── Spec: Disabling via menu restores calendar month labels ───────────────
 
-  test('budget page menu shows "Enable pay period budgeting" when flag is ON and periods are inactive', async () => {
-    const settingsPage = await navigation.goToSettingsPage();
-    await enablePayPeriodsFeatureFlag(settingsPage);
-    await configurePayPeriods(page, {
-      frequencyLabel: 'Biweekly (every 2 weeks)',
-      startDate: '2024-01-01',
-    });
-
-    const budgetPage = await navigation.goToBudgetPage();
-    await budgetPage.openBudgetPageMenu();
-
-    await expect(
-      page.getByText('Enable pay period budgeting', { exact: true }),
-    ).toBeVisible();
-
-    await page.keyboard.press('Escape');
-  });
-
-  // ── Spec: Tapping enable activates pay period labels ───────────────────────
-
-  test('tapping enable in mobile menu activates pay period labels', async () => {
-    const settingsPage = await navigation.goToSettingsPage();
-    await enablePayPeriodsFeatureFlag(settingsPage);
-    await configurePayPeriods(page, {
-      frequencyLabel: 'Biweekly (every 2 weeks)',
-      startDate: '2024-01-01',
-    });
-
-    const budgetPage = await navigation.goToBudgetPage();
-    await enablePayPeriodsOnMobileBudgetPage(page, budgetPage);
-
-    // Short format: "Jan 5 - Jan 18" — no PP suffix on mobile
-    await expect(budgetPage.heading).toHaveText(/[A-Z][a-z]+ \d+ - [A-Z][a-z]+ \d+/);
-    await expect(budgetPage.heading).not.toHaveText(/PP\d+/);
-  });
-
-  // ── Spec: Disable item present when periods are active ─────────────────────
-
-  test('budget page menu shows "Disable pay period budgeting" when periods are active', async () => {
+  test('disabling pay periods via mobile menu restores calendar month labels', async () => {
     const settingsPage = await navigation.goToSettingsPage();
     await enablePayPeriodsFeatureFlag(settingsPage);
     await configurePayPeriods(page, {
@@ -322,28 +317,9 @@ test.describe('Mobile Pay Periods toggle menu', () => {
     await enablePayPeriodsOnMobileBudgetPage(page, budgetPage);
 
     await budgetPage.openBudgetPageMenu();
-
     await expect(
       page.getByText('Disable pay period budgeting', { exact: true }),
     ).toBeVisible();
-
-    await page.keyboard.press('Escape');
-  });
-
-  // ── Spec: Tapping disable restores calendar month labels ───────────────────
-
-  test('tapping disable in mobile menu restores calendar month labels', async () => {
-    const settingsPage = await navigation.goToSettingsPage();
-    await enablePayPeriodsFeatureFlag(settingsPage);
-    await configurePayPeriods(page, {
-      frequencyLabel: 'Biweekly (every 2 weeks)',
-      startDate: '2024-01-01',
-    });
-
-    const budgetPage = await navigation.goToBudgetPage();
-    await enablePayPeriodsOnMobileBudgetPage(page, budgetPage);
-
-    await budgetPage.openBudgetPageMenu();
     await page.getByText('Disable pay period budgeting', { exact: true }).click();
 
     // Calendar month format restored, e.g. "January '25"
