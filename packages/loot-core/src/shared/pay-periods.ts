@@ -17,7 +17,8 @@ export type PayPeriod = {
  * Returns true if the given ID is a pay period ID (MM ≥ 13).
  * Pay periods use the YYYY-MM format with MM values 13–99.
  */
-export function isPayPeriod(id: string): boolean {
+export function isPayPeriod(id: string | undefined | null): boolean {
+  if (id == null) return false;
   const mm = parseInt(id.slice(5, 7), 10);
   return mm >= 13;
 }
