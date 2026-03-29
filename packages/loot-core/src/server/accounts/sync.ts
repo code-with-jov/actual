@@ -68,10 +68,7 @@ function getAccountBalance(account) {
 }
 
 async function updateAccountBalance(id: AccountEntity['id'], balance: number) {
-  db.runQuery('UPDATE accounts SET balance_current = ? WHERE id = ?', [
-    balance,
-    id,
-  ]);
+  await db.update('accounts', { id, balance_current: balance });
 }
 
 async function getAccountOldestTransaction(id): Promise<TransactionEntity> {
@@ -353,6 +350,9 @@ async function normalizeTransactions(
     // Strip off the irregular properties
     const { payee_name: originalPayeeName, subtransactions, ...rest } = trans;
     trans = rest;
+    const explicitFields = Object.entries(rest)
+      .filter(([, value]) => value != null)
+      .map(([field]) => field);
 
     let payee_name = originalPayeeName;
     if (payee_name) {
@@ -379,6 +379,7 @@ async function normalizeTransactions(
 
     normalized.push({
       payee_name,
+      explicitFields,
       subtransactions: subtransactions
         ? subtransactions.map(t => ({ ...t, account: acctId }))
         : null,
@@ -508,6 +509,7 @@ export async function reconcileTransactions(
   isPreview = false,
   defaultCleared = true,
   updateDates = false,
+  reimportDeleted?: boolean,
 ): Promise<ReconcileTransactionsResult> {
   logger.log('Performing transaction reconciliation');
 
@@ -526,6 +528,7 @@ export async function reconcileTransactions(
     transactions,
     isBankSyncAccount,
     strictIdChecking,
+    reimportDeleted,
   );
 
   // Finally, generate & commit the changes
@@ -663,14 +666,18 @@ export async function matchTransactions(
   transactions,
   isBankSyncAccount = false,
   strictIdChecking = true,
+  reimportDeletedOverride?: boolean,
 ) {
   logger.log('Performing transaction reconciliation matching');
 
-  const reimportDeleted = await aqlQuery(
-    q('preferences')
-      .filter({ id: `sync-reimport-deleted-${acctId}` })
-      .select('value'),
-  ).then(data => String(data?.data?.[0]?.value ?? 'true') === 'true');
+  const reimportDeleted =
+    reimportDeletedOverride !== undefined
+      ? reimportDeletedOverride
+      : await aqlQuery(
+          q('preferences')
+            .filter({ id: `sync-reimport-deleted-${acctId}` })
+            .select('value'),
+        ).then(data => String(data?.data?.[0]?.value ?? 'true') === 'true');
 
   const hasMatched = new Set();
 
@@ -873,15 +880,28 @@ export async function addTransactions(
   const accounts: db.DbAccount[] = await db.getAccounts();
   const accountsMap = new Map(accounts.map(account => [account.id, account]));
 
-  for (const { trans: originalTrans, subtransactions } of normalized) {
+  for (const {
+    trans: originalTrans,
+    subtransactions,
+    explicitFields,
+  } of normalized) {
     // Run the rules
     const trans = await runRules(originalTrans, accountsMap);
 
+    // Rules should enrich missing fields but not override explicit values provided by API clients.
+    const transWithExplicitFields = { ...trans };
+    for (const field of explicitFields) {
+      transWithExplicitFields[field] = originalTrans[field];
+    }
+
     const finalTransaction = {
       id: uuidv4(),
-      ...trans,
+      ...transWithExplicitFields,
       account: acctId,
-      cleared: trans.cleared != null ? trans.cleared : true,
+      cleared:
+        transWithExplicitFields.cleared != null
+          ? transWithExplicitFields.cleared
+          : true,
     };
 
     // Add split transactions if they are given
