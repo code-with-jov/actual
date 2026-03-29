@@ -119,8 +119,8 @@
 
 ### 10.1 Server: `packages/loot-core/src/server/preferences/app.ts`
 
-- [x] 10.1.1 Add `import * as budget from '../budget/base'` (after existing imports, maintaining alphabetical order within the `../` group)
-- [x] 10.1.2 In `saveSyncedPrefs`, after `sheet.get().meta().payPeriodConfig = updatedConfig`, add `await budget.createAllBudgets(updatedConfig)` so pay period budget sheets are created before the response returns to the client
+- [ ] 10.1.1 Remove `await budget.createAllBudgets(updatedConfig)` from `saveSyncedPrefs` — sheet creation is handled by `getBudgetBounds()` which already calls `createAllBudgets`; the server worker's sequential queue ensures `sheet.meta().payPeriodConfig` is current when `get-budget-bounds` runs
+- [ ] 10.1.2 Remove `import * as budget from '../budget/base'` if it was added solely for the `createAllBudgets` call
 
 ### 10.2 Client: `packages/desktop-client/src/components/budget/index.tsx`
 
@@ -199,6 +199,35 @@ Same root cause as D7 but in the mobile `BudgetPage.tsx`. The mobile component h
 ### 12.2 Test: tighten `enablePayPeriodsOnMobileBudgetPage` locator
 
 - [x] 12.2.1 In `enablePayPeriodsOnMobileBudgetPage`, replace `budgetPage.heading` with `budgetPage.heading.first()` to avoid strict mode violation when the menu modal is still animating out
+
+---
+
+## 14. Mixed-format crash fix on toggle (D9)
+
+### 14.1 `packages/desktop-client/src/components/budget/index.tsx`
+
+- [ ] 14.1.1 Replace the one-directional `startMonth` ternary with the symmetric format-match rule:
+  ```typescript
+  const startMonth =
+    startMonthPref && isPayPeriod(startMonthPref) === payPeriodConfig.enabled
+      ? startMonthPref
+      : currentMonth;
+  ```
+- [ ] 14.1.2 Add `displayBounds` derivation immediately after the `bounds` useState declaration:
+  ```typescript
+  const displayBounds =
+    isPayPeriod(bounds.start) === payPeriodConfig.enabled
+      ? bounds
+      : { start: startMonth, end: startMonth };
+  ```
+- [ ] 14.1.3 Replace `monthBounds={bounds}` with `monthBounds={displayBounds}` in the `TrackingBudgetProvider` subtree
+- [ ] 14.1.4 Replace `monthBounds={bounds}` with `monthBounds={displayBounds}` in the `EnvelopeBudgetProvider` subtree
+
+### 14.2 Verification
+
+- [ ] 14.2.1 Run `yarn typecheck` — no new errors
+- [ ] 14.2.2 Run `yarn lint:fix`
+- [ ] 14.2.3 Run the failing E2E test: `yarn workspace @actual-app/web run playwright test pay-periods.test.ts --browser=chromium` — `budget column header shows date-range summary label when pay periods are active` must pass
 
 ---
 

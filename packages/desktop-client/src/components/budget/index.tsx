@@ -67,13 +67,17 @@ export function Budget() {
   );
   const [startMonthPref, setStartMonthPref] = useLocalPref('budget.startMonth');
   const startMonth =
-    !payPeriodConfig.enabled && isPayPeriod(startMonthPref)
-      ? monthUtils.currentMonth()
-      : startMonthPref || currentMonth;
+    startMonthPref && isPayPeriod(startMonthPref) === payPeriodConfig.enabled
+      ? startMonthPref
+      : currentMonth;
   const [bounds, setBounds] = useState({
     start: startMonth,
     end: startMonth,
   });
+  const displayBounds =
+    isPayPeriod(bounds.start) === payPeriodConfig.enabled
+      ? bounds
+      : { start: startMonth, end: startMonth };
   const [budgetType = 'envelope'] = useSyncedPref('budgetType');
   const [maxMonthsPref] = useGlobalPref('maxMonths');
   const maxMonths = maxMonthsPref || 1;
@@ -248,7 +252,7 @@ export function Budget() {
           type={budgetType}
           prewarmStartMonth={startMonth}
           startMonth={startMonth}
-          monthBounds={bounds}
+          monthBounds={displayBounds}
           maxMonths={maxMonths}
           onMonthSelect={onMonthSelect}
           onDeleteCategory={onDeleteCategory}
@@ -274,7 +278,7 @@ export function Budget() {
           type={budgetType}
           prewarmStartMonth={startMonth}
           startMonth={startMonth}
-          monthBounds={bounds}
+          monthBounds={displayBounds}
           maxMonths={maxMonths}
           onMonthSelect={onMonthSelect}
           onDeleteCategory={onDeleteCategory}
