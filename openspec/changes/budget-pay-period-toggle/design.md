@@ -101,18 +101,61 @@ Desktop call sites continue to pass `'summary'` unchanged.
 
 **Decision**:
 
-*Server*: In `saveSyncedPrefs`, after setting `sheet.meta().payPeriodConfig`, call `await budget.createAllBudgets(updatedConfig)`. This creates any missing pay period budget sheets before the response returns to the client.
+*Server*: No change to `saveSyncedPrefs`. It already updates `sheet.meta().payPeriodConfig` before responding — that is sufficient. `createAllBudgets` must **not** be called here (see rationale below).
 
-*Client*: In `budget/index.tsx`, add a `useEffectEvent` (`onPayPeriodConfigChange`) that re-runs `get-budget-bounds` + `setBounds` + `prewarmAllMonths`, and wire it to a `useEffect` that fires when `payPeriodConfig` changes. Guard with `if (!initialized) return` so it does not double-fire on the initial mount (where `init()` already handles setup).
+*Client*: In `budget/index.tsx`, add a `useEffectEvent` (`onPayPeriodConfigChange`) that re-runs `get-budget-bounds` + `setBounds` + `prewarmAllMonths`, and wire it to a `useEffect` that fires when `payPeriodConfig` changes. Guard with `if (!initialized) return` so it does not double-fire on the initial mount (where `init()` already handles setup). Sheet creation happens inside `getBudgetBounds()` on the server, which already calls `createAllBudgets(payPeriodConfig)`.
 
-**Why `createAllBudgets` in `saveSyncedPrefs` rather than a separate handler**:
-`saveSyncedPrefs` is the single point where pay period prefs land on the server. Calling `createAllBudgets` there ensures sheets are ready before the pref-save response returns, so the client's subsequent `get-budget-bounds` call finds them. A separate handler (e.g., `refresh-budget-for-pay-periods`) would require an extra round trip from the client and a new handler registration.
+**Why `createAllBudgets` belongs in `getBudgetBounds`, not `saveSyncedPrefs`**:
+The server handler `getBudgetBounds()` already calls `budget.createAllBudgets(payPeriodConfig)` and returns the resulting bounds. The server worker processes messages sequentially, so `get-budget-bounds` is always queued after `preferences/save` — by the time `getBudgetBounds` runs, `sheet.meta().payPeriodConfig` already holds the updated config. Sheet creation happens exactly where it needs to, with no extra coupling to `saveSyncedPrefs`.
 
-**Alternative considered — client triggers `get-budget-bounds` and relies on it calling `createAllBudgets`**: The client already calls `get-budget-bounds` → `createAllBudgets` on mount. We could make the client call it again after toggle (without the server fix). This avoids touching `preferences/app.ts`, but introduces a race: if `payPeriodConfig` in the server meta is updated by `saveSyncedPrefs` and then `get-budget-bounds` is called immediately, the server would call `createAllBudgets(payPeriodConfig)` with the new config — which should work. However, this relies on sequencing (pref save must complete before `get-budget-bounds`) which is guaranteed since the client awaits the pref save. Both approaches are valid; we prefer the server fix because it makes `saveSyncedPrefs` self-contained: any caller that changes a pay period pref gets sheets created automatically, not just the Budget page.
+Calling `createAllBudgets` inside `saveSyncedPrefs` blocks the entire pref-save response on full sheet creation. On a fresh file, this means creating ~50+ period sheets before the server responds, which delays the Redux `mergeSyncedPrefs` dispatch, which delays `payPeriodConfig` updating in React, which delays the UI re-rendering with PP labels. The result is a visible UI freeze on the toggle click and Playwright timeouts. Keeping sheet creation in `getBudgetBounds` means the pref save returns immediately, Redux updates immediately, and the UI re-renders instantly.
 
-**Alternative considered — eager creation on initial load only, lazy creation on toggle**: The server could create sheets lazily when `envelope-budget-month` is called with an unknown sheet ID. This avoids the explicit trigger entirely but requires `sheet.getCellValue` to handle a missing sheet by creating it on the fly — a larger change to the spreadsheet infrastructure. Not worth it for this scope.
+**Alternative considered — `createAllBudgets` in `saveSyncedPrefs`** (original D7 decision, revised): Previously preferred for self-containment. Rejected after observing it caused blocking UI freezes and Playwright test timeouts on fresh files where many sheets needed creation.
 
-**Performance note**: On first enable, `useTogglePayPeriods` writes up to three prefs sequentially (`payPeriodStartDate`, `payPeriodFrequency`, `showPayPeriods`). Each triggers `saveSyncedPrefs` → `createAllBudgets`. The first two calls do minimal work because `payPeriodConfig.enabled` is still false until `showPayPeriods` is written — `getBudgetRange` without an enabled config generates regular month ranges that are already in `createdMonths`. Only the final `showPayPeriods = 'true'` call generates and creates new pay period sheets. Acceptable for the scope of this change.
+**Alternative considered — eager creation on initial load only, lazy creation on toggle**: The server could create sheets lazily when `envelope-budget-month` is called with an unknown sheet ID. Rejected — requires changes to spreadsheet infrastructure, out of scope.
+
+---
+
+### D9: Mixed-format crash during toggle — `startMonth` + `displayBounds` fix
+
+**Root cause**: The `onPayPeriodConfigChange` effect (D7) introduced a one-render window where three values are in conflicting formats after toggle:
+
+| Value | Sync/Async | State on first render after toggle |
+|---|---|---|
+| `payPeriodConfig.enabled` | Synchronous (React pref) | ✓ new value |
+| `startMonthPref` | Persisted local pref (lazy) | ✗ old format |
+| `bounds` | Server RPC (async) | ✗ old format |
+
+On that first render, `startMonth` derived from the stale pref produces a calendar ID while `payPeriodConfig` is already in PP mode. `getValidMonthBounds` then produces a mixed-format pair (PP start, calendar end), and `rangeInclusive` throws on mixed-format input — caught by the React error boundary and shown as a Fatal Error dialog.
+
+**Decision**: Fix both mismatches in `budget/index.tsx`, co-located with the state they protect:
+
+1. **Symmetric `startMonth` rule** — replace the one-directional disable-only guard with a single symmetric check: if the persisted pref's format doesn't match the current mode, fall back to `currentMonth` (which is computed from `payPeriodConfig` and is always format-correct):
+   ```typescript
+   const startMonth =
+     startMonthPref && isPayPeriod(startMonthPref) === payPeriodConfig.enabled
+       ? startMonthPref
+       : currentMonth;
+   ```
+
+2. **Derived `displayBounds`** — compute a format-safe view of `bounds` inline, immediately after `bounds` state is declared. If `bounds` is in the old format (hasn't been refreshed by the RPC yet), fall back to `{ start: startMonth, end: startMonth }`. Pass `displayBounds` to the table instead of `bounds`:
+   ```typescript
+   const displayBounds =
+     isPayPeriod(bounds.start) === payPeriodConfig.enabled
+       ? bounds
+       : { start: startMonth, end: startMonth };
+   ```
+
+**Why the fallback to a single-period range is acceptable UX**: The fallback only activates for the one render between the toggle click and the `onPayPeriodConfigChange` RPC returning. In practice this is imperceptible — the user sees a single pay period for a frame, then the full PP range renders as the RPC resolves.
+
+**Alternatives considered**:
+
+- *Fix in `MonthsContext.tsx`*: Import `isPayPeriod` into `MonthsProvider`, rename `bounds` → `rawBounds`, add a mismatch guard before calling `rangeInclusive`. Rejected — `MonthsContext` has no business knowing about pay period toggle semantics; the guard belongs with the state owner.
+- *Fix in `getValidMonthBounds`*: Add a format-mismatch early-return. Cleaner than touching `MonthsContext` but still downstream of where the state lives.
+- *Transition flag*: Set `isTransitioning = true` during the RPC, render `null` for the table. Rejected — causes a visible flash/blank on every toggle.
+- *Eager `setStartMonthPref` in toggle handler*: Call `setStartMonthPref(currentMonth)` synchronously in `togglePayPeriods`. Rejected — `useTogglePayPeriods` has no access to the PP-format `currentMonth`; `bounds` would still be stale.
+
+**No changes required outside `budget/index.tsx`**: `MonthsContext.tsx`, `rangeInclusive`, and `getValidMonthBounds` remain untouched.
 
 ---
 
