@@ -33,7 +33,7 @@ The MonthPicker uses the short format; BudgetSummary uses the long format. Both 
 
 ### D2: Function signature — boolean `short` replaced by string `format`
 
-**Decision**: Change the third parameter from `short: boolean` to `format: 'picker' | 'summary'` (default `'summary'`).
+**Decision**: Change the third parameter from `short: boolean` to `format: 'picker' | 'short' | 'summary'` (default `'summary'`). The `'short'` format is for mobile surfaces (see D6).
 
 **Rationale**: Two formats already felt like a stretch for a boolean; a third format would make `short=true, summary=false` unreadable. Named formats are self-documenting and extensible.
 
@@ -64,6 +64,16 @@ allPeriods
 **Decision**: Use `MMM d` (e.g., `Jan 5`) with a hyphen-space separator: `Jan 5 - Jan 18 (PP1)`.
 
 **Rationale**: Matches the user's stated example. The existing long format uses an en-dash (–); the new format uses a plain hyphen for simplicity and better keyboard accessibility in copy-paste scenarios.
+
+### D6: Mobile uses `'short'` format — date range only, no `(PPX)` suffix
+
+**Decision**: Add a `'short'` branch to `getPayPeriodLabel` that returns `${formatDate(startDate)} - ${formatDate(endDate)}` with no `(PP${periodNumber})` suffix. Switch all three mobile call sites (`BudgetPage.tsx` category group rows, `BudgetPage.tsx` `MonthSelector` header, `CategoryPage.tsx` header) from `'summary'` to `'short'`. Desktop call sites remain on `'summary'` or `'picker'`.
+
+**Rationale**: The mobile header bar has a logo button on the left and a calendar button on the right, leaving only the center strip for the title. The `(PP1)` suffix causes the label to overflow or truncate on small screens. The period number is supplemental — users already know they're in pay period mode — so omitting it on mobile is a clean trade-off. A dedicated `'short'` format is expressive and avoids mobile-specific string manipulation at call sites.
+
+**Alternative considered**: String-manipulate the summary label at call sites (`label.replace(/\s+\(PP\d+\)$/, '')`). Rejected — fragile, locale-dependent, and leaks format knowledge into every mobile component.
+
+**Why `'short'` fits here**: D2 already extended the format parameter from `boolean` to named literals. Adding `'short'` as a third option is a natural extension with no breaking change — all existing call sites pass an explicit format.
 
 ## Risks / Trade-offs
 
