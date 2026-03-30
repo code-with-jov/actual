@@ -17,7 +17,8 @@ The MonthPicker uses the short format; BudgetSummary uses the long format. Both 
 
 **Non-Goals:**
 
-- Changing any data model, period ID format, or navigation logic
+- Changing any data model or period ID format
+- Reworking navigation architecture — only threading `payPeriodConfig` through existing call sites where pay period IDs are passed to utility functions that require it
 - Disambiguating months that share a first letter (J=Jan/Jun/Jul, M=Mar/May, A=Apr/Aug) — accepted trade-off in favour of compactness; sequential context in the picker makes this workable
 - Supporting a separate "per-month count" in the BudgetSummary (it shows the global number)
 
@@ -74,6 +75,14 @@ allPeriods
 **Alternative considered**: String-manipulate the summary label at call sites (`label.replace(/\s+\(PP\d+\)$/, '')`). Rejected — fragile, locale-dependent, and leaks format knowledge into every mobile component.
 
 **Why `'short'` fits here**: D2 already extended the format parameter from `boolean` to named literals. Adding `'short'` as a third option is a natural extension with no breaking change — all existing call sites pass an explicit format.
+
+### D7: `MonthSelector` navigation bounds must propagate `payPeriodConfig` to `subMonths`
+
+**Decision**: `MonthSelector.nextEnabled` is computed as `month < monthUtils.subMonths(monthBounds.end, 1)`. When pay periods are enabled, `monthBounds.end` is a pay period ID (e.g., `2026-30`). `subMonths` accepts an optional `config?: PayPeriodConfig` parameter — without it, `_parse` throws when given a pay period ID. The fix is to pass `payPeriodConfig` as the third argument.
+
+**Root cause**: The original Non-Goal "no navigation logic changes" was too broad. `monthBounds` is populated by `get-budget-bounds`, which returns pay period IDs when pay periods are active. Any `monthUtils` call that receives a value from `monthBounds` must thread `payPeriodConfig` through.
+
+**Rationale**: `subMonths` already has the optional parameter; this is a one-argument fix at the call site, not a rework of navigation logic. `prevEnabled` (`month > monthBounds.start`) uses a direct string comparison, which is safe because all pay period IDs are zero-padded two-digit suffixes starting at `13`, preserving lexicographic order.
 
 ## Risks / Trade-offs
 

@@ -45,3 +45,77 @@ The within-month count for the picker format is determined by: taking all period
 
 - **WHEN** pay periods are disabled
 - **THEN** month labels display as before (e.g., `January 2024`)
+
+---
+
+### Requirement: Mobile MonthSelector navigation with pay periods active
+
+When pay periods are enabled, the `MonthSelector` component in the mobile budget page SHALL behave correctly across all navigation interactions. The component receives `payPeriodConfig` and must propagate it to any `monthUtils` functions that operate on period IDs.
+
+#### Navigation arrow state
+
+- The **Previous arrow** SHALL be disabled when `startMonth` equals `monthBounds.start`.
+- The **Next arrow** SHALL be disabled when `startMonth` is the last available period in `monthBounds`; this boundary SHALL be computed by calling `monthUtils.subMonths(monthBounds.end, 1, payPeriodConfig)` so that pay period IDs are resolved correctly.
+- When enabled, each arrow SHALL navigate by exactly one pay period.
+
+#### Scenario: Next arrow disabled at upper bound
+
+- **GIVEN** pay periods are active and `startMonth` equals the last period in `monthBounds`
+- **THEN** the Next arrow is disabled
+
+#### Scenario: Next arrow enabled within bounds
+
+- **GIVEN** pay periods are active and `startMonth` is before the last period in `monthBounds`
+- **THEN** the Next arrow is enabled and tapping it advances the view by one pay period
+
+#### Scenario: Previous arrow disabled at lower bound
+
+- **GIVEN** pay periods are active and `startMonth` equals `monthBounds.start`
+- **THEN** the Previous arrow is disabled
+
+#### Today button
+
+- The **Today** button SHALL be hidden when `startMonth` equals the current pay period.
+- The **Today** button SHALL be visible when `startMonth` differs from the current pay period.
+- Tapping Today SHALL navigate `startMonth` back to the current pay period and hide the button.
+
+#### Scenario: Today button hidden on current period
+
+- **GIVEN** pay periods are active and the budget is showing the current pay period
+- **THEN** the Today button is not visible
+
+#### Scenario: Today button visible and functional after navigation
+
+- **GIVEN** pay periods are active and the user has navigated away from the current period
+- **THEN** the Today button is visible
+- **WHEN** the user taps Today
+- **THEN** the view returns to the current pay period and the Today button is hidden again
+
+#### Period label interaction
+
+- Tapping the period label (the center button in `MonthSelector`) SHALL open the month menu modal.
+- The modal heading SHALL display the short-format date range (`MMM d - MMM d`) for the current pay period.
+
+#### Scenario: Tapping the period label opens the month menu modal
+
+- **GIVEN** pay periods are active
+- **WHEN** the user taps the period label in the `MonthSelector` header
+- **THEN** a modal opens whose heading matches the short-format label of the current pay period
+
+---
+
+### Requirement: Mobile spent-cell navigation with pay periods active
+
+When pay periods are enabled, tapping a spent cell on the mobile budget page SHALL navigate to the transactions view filtered to that pay period. The Back button on the transactions view SHALL return the user to the budget page.
+
+#### Scenario: Tapping spent cell navigates to transactions
+
+- **GIVEN** pay periods are active
+- **WHEN** the user taps a spent amount cell for a category
+- **THEN** the transactions view is shown, filtered to that category and pay period
+
+#### Scenario: Back from transactions returns to budget
+
+- **GIVEN** the user navigated to the transactions view from a spent cell
+- **WHEN** the user taps Back
+- **THEN** the mobile budget page is shown

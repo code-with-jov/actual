@@ -29,8 +29,13 @@ import { View } from '@actual-app/components/view';
 
 import { send } from 'loot-core/platform/client/connection';
 import * as monthUtils from 'loot-core/shared/months';
+import {
+  getPayPeriodLabel,
+  isPayPeriod,
+} from 'loot-core/shared/pay-periods';
 import { groupById } from 'loot-core/shared/util';
 import type { TransObjectLiteral } from 'loot-core/types/util';
+import type { PayPeriodConfig } from 'loot-core/types/prefs';
 
 import { BudgetTable, PILL_STYLE } from './BudgetTable';
 
@@ -50,6 +55,7 @@ import { FinancialText } from '@desktop-client/components/FinancialText';
 import { MobilePageHeader, Page } from '@desktop-client/components/Page';
 import { SyncRefresh } from '@desktop-client/components/SyncRefresh';
 import { useCategories } from '@desktop-client/hooks/useCategories';
+import { useFeatureFlag } from '@desktop-client/hooks/useFeatureFlag';
 import { useFormat } from '@desktop-client/hooks/useFormat';
 import { useLocale } from '@desktop-client/hooks/useLocale';
 import { useLocalPref } from '@desktop-client/hooks/useLocalPref';
@@ -82,6 +88,29 @@ export function BudgetPage() {
   const [budgetTypePref] = useSyncedPref('budgetType');
   const budgetType = isBudgetType(budgetTypePref) ? budgetTypePref : 'envelope';
   const spreadsheet = useSpreadsheet();
+
+  const isPayPeriodsEnabled = useFeatureFlag('payPeriodsEnabled');
+  const [showPayPeriods] = useSyncedPref('showPayPeriods');
+  const [payPeriodFrequency] = useSyncedPref('payPeriodFrequency');
+  const [payPeriodStartDate] = useSyncedPref('payPeriodStartDate');
+  const payPeriodConfig: PayPeriodConfig | undefined = useMemo(
+    () =>
+      isPayPeriodsEnabled && showPayPeriods === 'true' && payPeriodStartDate
+        ? {
+            enabled: true,
+            payFrequency:
+              (payPeriodFrequency as PayPeriodConfig['payFrequency']) ??
+              'monthly',
+            startDate: payPeriodStartDate,
+          }
+        : undefined,
+    [
+      isPayPeriodsEnabled,
+      showPayPeriods,
+      payPeriodFrequency,
+      payPeriodStartDate,
+    ],
+  );
 
   const currMonth = monthUtils.currentMonth();
   const [startMonth = currMonth, setStartMonthPref] =
@@ -462,20 +491,24 @@ export function BudgetPage() {
 
   const onOpenBudgetMonthNotesModal = useCallback(
     month => {
+      const monthLabel =
+        payPeriodConfig && isPayPeriod(month)
+          ? getPayPeriodLabel(month, payPeriodConfig, 'short', locale)
+          : monthUtils.format(month, "MMMM ''yy", locale);
       dispatch(
         pushModal({
           modal: {
             name: 'notes',
             options: {
               id: `budget-${month}`,
-              name: monthUtils.format(month, "MMMM ''yy", locale),
+              name: monthLabel,
               onSave: onSaveNotes,
             },
           },
         }),
       );
     },
-    [dispatch, onSaveNotes, locale],
+    [dispatch, onSaveNotes, locale, payPeriodConfig],
   );
 
   const onSwitchBudgetFile = useCallback(() => {
@@ -545,6 +578,7 @@ export function BudgetPage() {
             <MonthSelector
               month={startMonth}
               monthBounds={monthBounds}
+              payPeriodConfig={payPeriodConfig}
               onOpenMonthMenu={onOpenBudgetMonthMenu}
               onPrevMonth={onPrevMonth}
               onNextMonth={onNextMonth}
@@ -963,9 +997,17 @@ function OverspendingBanner({ month, onBudgetAction, budgetType, ...props }) {
 function MonthSelector({
   month,
   monthBounds,
+  payPeriodConfig,
   onOpenMonthMenu,
   onPrevMonth,
   onNextMonth,
+}: {
+  month: string;
+  monthBounds: { start: string; end: string };
+  payPeriodConfig: PayPeriodConfig | undefined;
+  onOpenMonthMenu?: (month: string) => void;
+  onPrevMonth: () => void;
+  onNextMonth: () => void;
 }) {
   const locale = useLocale();
   const { t } = useTranslation();
@@ -1008,7 +1050,9 @@ function MonthSelector({
         data-month={month}
       >
         <Text style={styles.underlinedText}>
-          {monthUtils.format(month, "MMMM ''yy", locale)}
+          {payPeriodConfig && isPayPeriod(month)
+            ? getPayPeriodLabel(month, payPeriodConfig, 'short', locale)
+            : monthUtils.format(month, "MMMM ''yy", locale)}
         </Text>
       </Button>
       <Button

@@ -307,12 +307,16 @@ export function generatePayPeriodRange(
  *   position of this period among all periods that start in the same
  *   calendar month.
  *
+ * 'short' format: '{startDate} - {endDate}' — e.g. 'Jan 5 - Jan 18'
+ *   Date range only, no period number suffix. Suitable for space-constrained
+ *   mobile surfaces.
+ *
  * 'summary' format: '{startDate} - {endDate} (PP{globalN})' — e.g. 'Jan 5 - Jan 18 (PP1)'
  */
 export function getPayPeriodLabel(
   monthId: string,
   config: PayPeriodConfig,
-  format: 'picker' | 'summary' = 'summary',
+  format: 'picker' | 'short' | 'summary' = 'summary',
   locale?: Locale,
 ): string {
   const year = parseInt(monthId.slice(0, 4), 10);
@@ -354,7 +358,12 @@ export function getPayPeriodLabel(
     return `${monthLetter}${withinMonthCount}`;
   }
 
-  // 'summary' format
   const formatDate = (dt: Date) => d.format(dt, 'MMM d', { locale });
+
+  if (format === 'short') {
+    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+  }
+
+  // 'summary' format
   return `${formatDate(startDate)} - ${formatDate(endDate)} (PP${periodNumber})`;
 }

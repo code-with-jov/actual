@@ -168,6 +168,18 @@ test.describe('Pay Periods', () => {
     await expect(checkbox).toBeChecked();
   });
 
+  // ── Spec: Settings page regression ────────────────────────────────────
+
+  test('settings page retains frequency selector and start date input', async () => {
+    await enablePayPeriodsFeatureFlag(settingsPage);
+
+    const payPeriodSettings = page.getByTestId('pay-period-settings');
+    await payPeriodSettings.waitFor({ state: 'visible' });
+
+    await expect(page.locator('#pay-period-frequency')).toBeVisible();
+    await expect(page.locator('#pay-period-start-date')).toBeVisible();
+  });
+
   // ── Spec: Frequency change warning ─────────────────────────────────────
   // Covers: frequency-change warning (pay-period-ui spec §4, task 10.5)
 
@@ -290,6 +302,36 @@ test.describe('Pay Periods', () => {
       await expect(header).toHaveText(
         /^[A-Z][a-z]+ \d+ - [A-Z][a-z]+ \d+ \(PP\d+\)$/,
       );
+    });
+
+    // ── Spec: Budget summary renders correctly ────────────────────────
+    // Covers: budget summary data pipeline with pay period sheets active
+
+    test('budget summary panel renders expected fields when pay periods are active', async () => {
+      const summary = page.getByTestId('budget-summary').first();
+      await expect(summary).toBeVisible();
+      await expect(summary.getByText('Available funds')).toBeVisible();
+      await expect(summary.getByText(/^Overspent in /)).toBeVisible();
+      await expect(summary.getByText('Budgeted')).toBeVisible();
+      await expect(summary.getByText('For next month')).toBeVisible();
+    });
+
+    // ── Spec: Spent cell routes to transactions when pay periods are active ─
+    // Covers: onShowActivity with payPeriodConfig (budget/index.tsx)
+
+    test('clicking on spent amounts opens the transactions page and back returns to budget', async () => {
+      await page
+        .getByTestId('budget-table')
+        .getByTestId('category-month-spent')
+        .first()
+        .click();
+
+      await page.waitForURL(/\/accounts/);
+      await expect(page.getByTestId('account-name')).toHaveText('All Accounts');
+
+      await page.getByRole('button', { name: 'Back' }).click();
+      await page.waitForURL(/\/budget/);
+      await expect(page.getByTestId('budget-table')).toBeVisible();
     });
 
     // ── Spec: Context updates when preferences change ──────────────────
