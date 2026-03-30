@@ -65,4 +65,32 @@
 
 ## 8. Fix mobile navigation with pay periods active
 
-- [ ] 8.1 In `BudgetPage.tsx` (`MonthSelector`): pass `payPeriodConfig` as the third argument to `monthUtils.subMonths(monthBounds.end, 1, payPeriodConfig)` in the `nextEnabled` calculation so that pay period IDs are resolved correctly without throwing
+- [x] 8.1 In `BudgetPage.tsx` (`MonthSelector`): pass `payPeriodConfig` as the third argument to `monthUtils.subMonths(monthBounds.end, 1, payPeriodConfig)` in the `nextEnabled` calculation so that pay period IDs are resolved correctly without throwing
+
+## 9. Shared utility: `resolveMonthToDateFilter`
+
+The `getCategoryMonthFilter` in `CategoryTransactions.tsx` uses `{ date: { $transform: '$month', $eq: month } }`. When `month` is a pay period ID (e.g. `2026-13`), the `$month` transform extracts a `YYYY-MM` portion from each date — which never equals a period ID — so the transaction list is always empty.
+
+- [ ] 9.1 Add `resolveMonthToDateFilter(month: string, config?: PayPeriodConfig)` to `packages/loot-core/src/shared/pay-periods.ts`:
+  - When `isPayPeriod(month)` and `config` is provided: call `generatePayPeriods` to find the period's `startDate` and `endDate`, return `{ date: { $gte: startDate, $lte: endDate } }`
+  - Otherwise: return `{ date: { $transform: '$month', $eq: month } }`
+- [ ] 9.2 Export `resolveMonthToDateFilter` from `packages/loot-core/src/shared/pay-periods.ts`
+- [ ] 9.3 Add `payPeriodConfig?: PayPeriodConfig` to `CategoryTransactionsProps` and `TransactionListWithPreviewsProps` in `CategoryTransactions.tsx`
+- [ ] 9.4 Pass `payPeriodConfig` from `CategoryPage` (already computed there) into `<CategoryTransactions>`
+- [ ] 9.5 Update `getCategoryMonthFilter` to accept `config?: PayPeriodConfig` and call `resolveMonthToDateFilter(month, config)` instead of the inline date filter; update its call site in `TransactionListWithPreviews`
+- [ ] 9.6 Add unit tests for `resolveMonthToDateFilter` in `pay-periods.test.ts`:
+  - Calendar month returns `{ date: { $transform: '$month', $eq: month } }`
+  - Pay period month with config returns `{ date: { $gte: startDate, $lte: endDate } }` with correct dates
+  - Pay period month without config falls back to `$transform: '$month'` filter (no crash, best-effort)
+
+## 10. Fix current-period background highlight
+
+`monthUtils.isCurrentMonth(month)` is used in `BudgetTableHeader`, `ExpenseGroupHeader`, and `ExpenseCategoryListItem` for the "current month" background colour. When `month` is a pay period ID, `isCurrentMonth` compares it against the return of `monthUtils.currentMonth()` (always a calendar string like `2026-03`), so the highlight never fires while a pay period is active.
+
+- [ ] 10.1 Add `isCurrentPeriod(month: string, config?: PayPeriodConfig): boolean` to `packages/loot-core/src/shared/pay-periods.ts`:
+  - When `isPayPeriod(month)` and `config` provided: resolve the current calendar date's pay period ID via `generatePayPeriods`, compare against `month`
+  - Otherwise: delegate to `monthUtils.isCurrentMonth(month)`
+- [ ] 10.2 Add `payPeriodConfig?: PayPeriodConfig` to `BudgetTableProps` in `BudgetTable.tsx`; pass it from `BudgetPage` (already has it)
+- [ ] 10.3 Thread `payPeriodConfig` through `BudgetTable` → `BudgetTableHeader`, `BudgetGroups` → `ExpenseGroupList` → `ExpenseGroupListItem` → `ExpenseGroupHeader`, and `ExpenseCategoryList` → `ExpenseCategoryListItem`
+- [ ] 10.4 Replace each `monthUtils.isCurrentMonth(month)` call in those components with `isCurrentPeriod(month, payPeriodConfig)`
+- [ ] 10.5 Add unit tests for `isCurrentPeriod`: correctly identifies current pay period; falls back correctly for calendar months; returns false for non-current periods

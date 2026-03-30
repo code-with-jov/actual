@@ -119,3 +119,41 @@ When pay periods are enabled, tapping a spent cell on the mobile budget page SHA
 - **GIVEN** the user navigated to the transactions view from a spent cell
 - **WHEN** the user taps Back
 - **THEN** the mobile budget page is shown
+
+---
+
+### Requirement: CategoryPage transaction filtering for pay period months
+
+When pay periods are active and the user navigates to `CategoryPage` from a spent cell, the transaction list SHALL be filtered by the pay period's actual date range, not the period ID string. A shared utility `resolveMonthToDateFilter(month, config?)` SHALL encapsulate this branching so all call sites remain pay-period-agnostic.
+
+- When `month` is a pay period ID and a `PayPeriodConfig` is provided, the filter SHALL use `{ date: { $gte: startDate, $lte: endDate } }` where `startDate`/`endDate` are the period's resolved calendar dates.
+- When `month` is a calendar month (or no config is provided), the filter SHALL use `{ date: { $transform: '$month', $eq: month } }` as before.
+
+#### Scenario: Transactions filtered by pay period date range
+
+- **GIVEN** pay periods are active and the user taps a spent cell for a category
+- **WHEN** `CategoryPage` renders `CategoryTransactions`
+- **THEN** the transaction query filters by the pay period's `startDate`–`endDate` range
+- **AND** transactions that fall within that date range are shown (not an empty list)
+
+#### Scenario: Calendar month filtering unchanged
+
+- **GIVEN** pay periods are disabled
+- **WHEN** the user taps a spent cell
+- **THEN** the transaction query uses the existing `$month` transform, unchanged
+
+---
+
+### Requirement: Current pay period background highlight
+
+When pay periods are active, the budget table header, category group rows, and category rows SHALL use the "current month" background colour when the displayed period is the current pay period — matching the existing visual treatment for the current calendar month.
+
+#### Scenario: Current pay period rows highlighted
+
+- **GIVEN** pay periods are active and the user is viewing the current pay period
+- **THEN** `BudgetTableHeader`, `ExpenseGroupHeader`, and `ExpenseCategoryListItem` render with the `budgetHeaderCurrentMonth` / `budgetCurrentMonth` background colour
+
+#### Scenario: Non-current pay period rows not highlighted
+
+- **GIVEN** pay periods are active and the user has navigated to a past or future pay period
+- **THEN** rows render with the `budgetHeaderOtherMonth` / `budgetOtherMonth` background colour

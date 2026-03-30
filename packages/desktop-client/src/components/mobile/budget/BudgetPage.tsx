@@ -1012,7 +1012,8 @@ function MonthSelector({
   const locale = useLocale();
   const { t } = useTranslation();
   const prevEnabled = month > monthBounds.start;
-  const nextEnabled = month < monthUtils.subMonths(monthBounds.end, 1);
+  const nextEnabled =
+    month < monthUtils.subMonths(monthBounds.end, 1, payPeriodConfig);
 
   const arrowButtonStyle = {
     padding: 10,

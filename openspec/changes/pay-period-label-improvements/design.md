@@ -84,6 +84,26 @@ allPeriods
 
 **Rationale**: `subMonths` already has the optional parameter; this is a one-argument fix at the call site, not a rework of navigation logic. `prevEnabled` (`month > monthBounds.start`) uses a direct string comparison, which is safe because all pay period IDs are zero-padded two-digit suffixes starting at `13`, preserving lexicographic order.
 
+### D8: `resolveMonthToDateFilter` lives in `pay-periods.ts`, not a query utility module
+
+**Decision**: Add `resolveMonthToDateFilter(month, config?)` to `loot-core/src/shared/pay-periods.ts` alongside `isPayPeriod` and `generatePayPeriods`, rather than in a separate query utility.
+
+**Rationale**: The function's primary job is resolving a pay period ID to its date range — knowledge that already lives in `pay-periods.ts`. Keeping it there maintains a one-directional dependency: pay period logic knows about query filter shapes, but query callers remain agnostic and just receive a filter object.
+
+**Alternative considered**: A separate `month-filters.ts` utility. Rejected — unnecessary indirection for a single function that depends entirely on pay period logic already in `pay-periods.ts`.
+
+**Fallback behaviour**: When `isPayPeriod(month)` is true but no `config` is provided, the function falls back to `{ $transform: '$month', $eq: month }`. This produces an empty result rather than a crash — safe and observable in development.
+
+### D9: `isCurrentPeriod` added to `pay-periods.ts`; `monthUtils.isCurrentMonth` left unchanged
+
+**Decision**: Add `isCurrentPeriod(month, config?)` to `pay-periods.ts` and replace the three `monthUtils.isCurrentMonth(month)` calls in budget table components at their call sites. Do not modify `monthUtils.isCurrentMonth`.
+
+**Rationale**: `monthUtils.isCurrentMonth` is a general utility used broadly with no pay period knowledge. Adding `config?` there would create a dependency from `months.ts` into `pay-periods.ts` (circular risk given `pay-periods.ts` already imports from `months.ts`) and would widen the API of a high-reuse function for a niche concern. Replacing at call sites is surgical and keeps modules cleanly separated.
+
+**Alternative considered**: Overload `monthUtils.isCurrentMonth(month, config?)`. Rejected — circular import risk and pollutes a general utility with pay period specifics.
+
+**Threading strategy**: `payPeriodConfig` is added to `BudgetTableProps` and threaded to `BudgetTableHeader`, `BudgetGroups` → `ExpenseGroupList` → `ExpenseGroupListItem` → `ExpenseGroupHeader`, and `ExpenseCategoryList` → `ExpenseCategoryListItem`. This is 2–3 hops per path; acceptable given the object is already computed in `BudgetPage` and the components are co-located.
+
 ## Risks / Trade-offs
 
 - **J/M/A ambiguity in MonthPicker**: Periods starting in January, June, and July all get label prefix `J`. Within sequential navigation this is workable (users know where in the year they are), but a picker rendered in isolation (e.g., a tooltip) may be confusing. → Accepted; can revisit with two-letter prefix if user feedback warrants it.

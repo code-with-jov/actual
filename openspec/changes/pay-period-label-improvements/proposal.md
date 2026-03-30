@@ -21,9 +21,13 @@ _(none)_
 
 ## Impact
 
-- `packages/loot-core/src/shared/pay-periods.ts` — `getPayPeriodLabel` function (all three format branches)
-- `packages/loot-core/src/shared/pay-periods.test.ts` — label assertion updates
+- `packages/loot-core/src/shared/pay-periods.ts` — `getPayPeriodLabel` function (all three format branches); new `resolveMonthToDateFilter` and `isCurrentPeriod` utilities
+- `packages/loot-core/src/shared/pay-periods.test.ts` — label assertion updates; new utility unit tests
 - `packages/desktop-client/e2e/pay-periods.test.ts` — E2E label assertions
-- `packages/desktop-client/src/components/mobile/budget/BudgetPage.tsx` — switch two `getPayPeriodLabel` calls from `'summary'` to `'short'`
-- `packages/desktop-client/src/components/mobile/budget/CategoryPage.tsx` — switch one `getPayPeriodLabel` call from `'summary'` to `'short'`
-- No API or data-model changes; purely display formatting
+- `packages/desktop-client/src/components/mobile/budget/BudgetPage.tsx` — switch two `getPayPeriodLabel` calls from `'summary'` to `'short'`; thread `payPeriodConfig` into `BudgetTable`
+- `packages/desktop-client/src/components/mobile/budget/CategoryPage.tsx` — switch one `getPayPeriodLabel` call from `'summary'` to `'short'`; pass `payPeriodConfig` into `CategoryTransactions`
+- `packages/desktop-client/src/components/mobile/budget/CategoryTransactions.tsx` — update `getCategoryMonthFilter` to use `resolveMonthToDateFilter`
+- `packages/desktop-client/src/components/mobile/budget/BudgetTable.tsx` — thread `payPeriodConfig`; update `isCurrentMonth` calls
+- `packages/desktop-client/src/components/mobile/budget/ExpenseGroupListItem.tsx` — update `isCurrentMonth` call
+- `packages/desktop-client/src/components/mobile/budget/ExpenseCategoryListItem.tsx` — update `isCurrentMonth` call
+- No API or data-model changes; purely display and filtering correctness
