@@ -43,7 +43,20 @@ async function configurePayPeriods(
   await selectFrequency(page, frequencyLabel);
 
   if (startDate) {
-    await payPeriodSettings.locator('#pay-period-start-date').fill(startDate);
+    // Use the native setter + dispatch to reliably trigger React's onChange for
+    // <input type="date"> in Chromium, where fill() may not fire synthetic events.
+    await payPeriodSettings
+      .locator('#pay-period-start-date')
+      .evaluate((el: HTMLInputElement, value: string) => {
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        const nativeSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          'value',
+        )?.set;
+        nativeSetter?.call(el, value);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }, startDate);
   }
 
   if (enable) {
@@ -52,6 +65,8 @@ async function configurePayPeriods(
     });
     if (!(await checkbox.isChecked())) {
       await checkbox.click();
+      // Verify handleToggle succeeded (not silently blocked by validation)
+      await expect(checkbox).toBeChecked();
     }
   }
 }
@@ -81,7 +96,7 @@ test.describe('Mobile Pay Periods (enabled)', () => {
     await enablePayPeriodsFeatureFlag(settingsPage);
     await configurePayPeriods(page, {
       frequencyLabel: 'Biweekly (every 2 weeks)',
-      startDate: '2024-01-01',
+      startDate: '2016-01-01',
       enable: true,
     });
 

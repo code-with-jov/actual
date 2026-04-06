@@ -29,13 +29,10 @@ import { View } from '@actual-app/components/view';
 
 import { send } from 'loot-core/platform/client/connection';
 import * as monthUtils from 'loot-core/shared/months';
-import {
-  getPayPeriodLabel,
-  isPayPeriod,
-} from 'loot-core/shared/pay-periods';
+import { getPayPeriodLabel, isPayPeriod } from 'loot-core/shared/pay-periods';
 import { groupById } from 'loot-core/shared/util';
-import type { TransObjectLiteral } from 'loot-core/types/util';
 import type { PayPeriodConfig } from 'loot-core/types/prefs';
+import type { TransObjectLiteral } from 'loot-core/types/util';
 
 import { BudgetTable, PILL_STYLE } from './BudgetTable';
 
@@ -112,9 +109,14 @@ export function BudgetPage() {
     ],
   );
 
-  const currMonth = monthUtils.currentMonth();
-  const [startMonth = currMonth, setStartMonthPref] =
+  const currMonth = monthUtils.currentMonth(payPeriodConfig);
+  const [storedStartMonth, setStartMonthPref] =
     useLocalPref('budget.startMonth');
+  const startMonth = monthUtils.resolveStartMonth(
+    storedStartMonth,
+    payPeriodConfig,
+    currMonth,
+  );
   const [monthBounds, setMonthBounds] = useState({
     start: startMonth,
     end: startMonth,
@@ -173,12 +175,13 @@ export function BudgetPage() {
             options: {
               month: startMonth,
               onBudgetAction,
+              payPeriodConfig,
             },
           },
         }),
       );
     }
-  }, [budgetType, dispatch, onBudgetAction, startMonth]);
+  }, [budgetType, dispatch, onBudgetAction, payPeriodConfig, startMonth]);
 
   const onOpenNewCategoryGroupModal = useCallback(() => {
     dispatch(
@@ -320,18 +323,18 @@ export function BudgetPage() {
   );
 
   const onPrevMonth = useCallback(async () => {
-    const month = monthUtils.subMonths(startMonth, 1);
+    const month = monthUtils.subMonths(startMonth, 1, payPeriodConfig);
     await prewarmMonth(budgetType, spreadsheet, month);
     setStartMonthPref(month);
     setInitialized(true);
-  }, [budgetType, setStartMonthPref, spreadsheet, startMonth]);
+  }, [budgetType, payPeriodConfig, setStartMonthPref, spreadsheet, startMonth]);
 
   const onNextMonth = useCallback(async () => {
-    const month = monthUtils.addMonths(startMonth, 1);
+    const month = monthUtils.addMonths(startMonth, 1, payPeriodConfig);
     await prewarmMonth(budgetType, spreadsheet, month);
     setStartMonthPref(month);
     setInitialized(true);
-  }, [budgetType, setStartMonthPref, spreadsheet, startMonth]);
+  }, [budgetType, payPeriodConfig, setStartMonthPref, spreadsheet, startMonth]);
 
   const onCurrentMonth = useCallback(async () => {
     await prewarmMonth(budgetType, spreadsheet, currMonth);
@@ -525,12 +528,19 @@ export function BudgetPage() {
               month,
               onBudgetAction,
               onEditNotes: onOpenBudgetMonthNotesModal,
+              ...(budgetType === 'envelope' ? { payPeriodConfig } : {}),
             },
           },
         }),
       );
     },
-    [budgetType, dispatch, onBudgetAction, onOpenBudgetMonthNotesModal],
+    [
+      budgetType,
+      dispatch,
+      onBudgetAction,
+      onOpenBudgetMonthNotesModal,
+      payPeriodConfig,
+    ],
   );
 
   const onOpenBudgetPageMenu = useCallback(() => {
@@ -604,7 +614,7 @@ export function BudgetPage() {
             </Button>
           }
           rightContent={
-            !monthUtils.isCurrentMonth(startMonth) && (
+            startMonth !== currMonth && (
               <Button
                 variant="bare"
                 onPress={onCurrentMonth}

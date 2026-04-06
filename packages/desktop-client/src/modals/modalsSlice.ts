@@ -19,6 +19,7 @@ import type {
   UserEntity,
 } from 'loot-core/types/models';
 import type { Template } from 'loot-core/types/models/templates';
+import type { PayPeriodConfig } from 'loot-core/types/prefs';
 
 import { accountQueries } from '@desktop-client/accounts';
 import { resetApp, setAppState } from '@desktop-client/app/appSlice';
@@ -378,6 +379,7 @@ export type Modal =
           type: string,
           args?: unknown,
         ) => Promise<void>;
+        payPeriodConfig?: PayPeriodConfig;
       };
     }
   | {
@@ -493,6 +495,7 @@ export type Modal =
         month: string;
         onBudgetAction: (month: string, action: string, arg?: unknown) => void;
         onEditNotes: (id: NoteEntity['id']) => void;
+        payPeriodConfig?: PayPeriodConfig;
       };
     }
   | {

@@ -151,15 +151,35 @@ export function dayFromDate(date: DateLike): string {
   return d.format(_parse(date), 'yyyy-MM-dd');
 }
 
+/**
+ * Returns `stored` when its format matches the current mode (both are pay
+ * period IDs or both are calendar month IDs), and `fallback` otherwise.
+ *
+ * Handles both directions of a pay period toggle:
+ *   - Enable: stored is a calendar ID while PP mode is active → fallback
+ *   - Disable: stored is a PP ID while calendar mode is active → fallback
+ */
+export function resolveStartMonth(
+  stored: string | undefined | null,
+  config: PayPeriodConfig | undefined,
+  fallback: string,
+): string {
+  const ppActive = config?.enabled === true;
+  return stored && isPayPeriod(stored) === ppActive ? stored : fallback;
+}
+
 export function currentMonth(config?: PayPeriodConfig): string {
+  const isTest = global.IS_TESTING || Platform.isPlaywright;
   if (config?.enabled) {
-    return getCurrentPayPeriod(new Date(), config);
+    const now = isTest
+      ? new Date((global.currentMonth || '2017-01') + '-01')
+      : new Date();
+    return getCurrentPayPeriod(now, config);
   }
-  if (global.IS_TESTING || Platform.isPlaywright) {
+  if (isTest) {
     return global.currentMonth || '2017-01';
-  } else {
-    return d.format(new Date(), 'yyyy-MM');
   }
+  return d.format(new Date(), 'yyyy-MM');
 }
 
 export function currentWeek(
@@ -314,7 +334,7 @@ export function bounds(
     const period = periods.find(p => p.monthId === String(month));
     if (!period) {
       throw new Error(
-        `bounds: pay period '${month}' not found in year ${year}`,
+        `bounds: pay period '${String(month)}' not found in year ${year}`,
       );
     }
     return {
