@@ -66,11 +66,18 @@ export function Budget() {
     'budget.summaryCollapsed',
   );
   const [startMonthPref, setStartMonthPref] = useLocalPref('budget.startMonth');
-  const startMonth = startMonthPref || currentMonth;
+  const startMonth =
+    startMonthPref && isPayPeriod(startMonthPref) === payPeriodConfig.enabled
+      ? startMonthPref
+      : currentMonth;
   const [bounds, setBounds] = useState({
     start: startMonth,
     end: startMonth,
   });
+  const displayBounds =
+    isPayPeriod(bounds.start) === payPeriodConfig.enabled
+      ? bounds
+      : { start: startMonth, end: startMonth };
   const [budgetType = 'envelope'] = useSyncedPref('budgetType');
   const [maxMonthsPref] = useGlobalPref('maxMonths');
   const maxMonths = maxMonthsPref || 1;
@@ -106,6 +113,23 @@ export function Budget() {
     });
   });
   useEffect(() => loadBoundBudgets(), []);
+
+  const onPayPeriodConfigChange = useEffectEvent(() => {
+    if (!initialized) return;
+    async function run() {
+      const { start, end } = await send('get-budget-bounds');
+      setBounds({ start, end });
+      await prewarmAllMonths(
+        budgetType,
+        spreadsheet,
+        { start, end },
+        startMonth,
+        payPeriodConfig,
+      );
+    }
+    void run();
+  });
+  useEffect(() => onPayPeriodConfigChange(), [payPeriodConfig]);
 
   const onMonthSelect = async (month, numDisplayed) => {
     setStartMonthPref(month);
@@ -228,7 +252,7 @@ export function Budget() {
           type={budgetType}
           prewarmStartMonth={startMonth}
           startMonth={startMonth}
-          monthBounds={bounds}
+          monthBounds={displayBounds}
           maxMonths={maxMonths}
           onMonthSelect={onMonthSelect}
           onDeleteCategory={onDeleteCategory}
@@ -254,7 +278,7 @@ export function Budget() {
           type={budgetType}
           prewarmStartMonth={startMonth}
           startMonth={startMonth}
-          monthBounds={bounds}
+          monthBounds={displayBounds}
           maxMonths={maxMonths}
           onMonthSelect={onMonthSelect}
           onDeleteCategory={onDeleteCategory}

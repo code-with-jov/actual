@@ -2,6 +2,7 @@
 import React, {
   useCallback,
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -63,6 +64,7 @@ import { SheetNameProvider } from '@desktop-client/hooks/useSheetName';
 import { useSheetValue } from '@desktop-client/hooks/useSheetValue';
 import { useSpreadsheet } from '@desktop-client/hooks/useSpreadsheet';
 import { useSyncedPref } from '@desktop-client/hooks/useSyncedPref';
+import { useTogglePayPeriods } from '@desktop-client/hooks/useTogglePayPeriods';
 import { useTransactions } from '@desktop-client/hooks/useTransactions';
 import { useUndo } from '@desktop-client/hooks/useUndo';
 import { collapseModals, pushModal } from '@desktop-client/modals/modalsSlice';
@@ -88,6 +90,7 @@ export function BudgetPage() {
   const spreadsheet = useSpreadsheet();
 
   const isPayPeriodsEnabled = useFeatureFlag('payPeriodsEnabled');
+  const { payPeriodsActive, togglePayPeriods } = useTogglePayPeriods();
   const [showPayPeriods] = useSyncedPref('showPayPeriods');
   const [payPeriodFrequency] = useSyncedPref('payPeriodFrequency');
   const [payPeriodStartDate] = useSyncedPref('payPeriodStartDate');
@@ -139,6 +142,18 @@ export function BudgetPage() {
 
     void init();
   }, [budgetType, startMonth, dispatch, spreadsheet]);
+
+  const onPayPeriodConfigChange = useEffectEvent(() => {
+    if (!initialized) return;
+    async function run() {
+      const { start, end } = await send('get-budget-bounds');
+      setMonthBounds({ start, end });
+      setStartMonthPref(currMonth);
+      await prewarmMonth(budgetType, spreadsheet, currMonth);
+    }
+    void run();
+  });
+  useEffect(() => onPayPeriodConfigChange(), [payPeriodConfig]);
 
   const onBudgetAction = useCallback(
     async (month, type, args) => {
@@ -493,7 +508,7 @@ export function BudgetPage() {
               id: `budget-${month}`,
               name:
                 isPayPeriod(month) && payPeriodConfig.enabled
-                  ? getPayPeriodLabel(month, payPeriodConfig, 'summary', locale)
+                  ? getPayPeriodLabel(month, payPeriodConfig, 'short', locale)
                   : monthUtils.format(month, "MMMM ''yy", locale),
               onSave: onSaveNotes,
             },
@@ -535,15 +550,24 @@ export function BudgetPage() {
             onAddCategoryGroup: onOpenNewCategoryGroupModal,
             onToggleHiddenCategories,
             onSwitchBudgetFile,
+            onTogglePayPeriods: isPayPeriodsEnabled
+              ? togglePayPeriods
+              : undefined,
+            payPeriodsActive: isPayPeriodsEnabled
+              ? payPeriodsActive
+              : undefined,
           },
         },
       }),
     );
   }, [
     dispatch,
+    isPayPeriodsEnabled,
     onOpenNewCategoryGroupModal,
     onSwitchBudgetFile,
     onToggleHiddenCategories,
+    payPeriodsActive,
+    togglePayPeriods,
   ]);
 
   if (!categoryGroups || !initialized) {
@@ -1047,7 +1071,7 @@ function MonthSelector({
 
   const periodLabel =
     isPayPeriod(month) && payPeriodConfig?.enabled
-      ? getPayPeriodLabel(month, payPeriodConfig, 'summary', locale)
+      ? getPayPeriodLabel(month, payPeriodConfig, 'short', locale)
       : monthUtils.format(month, "MMMM ''yy", locale);
 
   const arrowButtonStyle = {

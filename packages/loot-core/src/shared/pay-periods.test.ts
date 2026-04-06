@@ -49,6 +49,14 @@ describe('isPayPeriod', () => {
   test('returns false for a normal month like 2024-01', () => {
     expect(isPayPeriod('2024-01')).toBe(false);
   });
+
+  test('returns false for undefined', () => {
+    expect(isPayPeriod(undefined)).toBe(false);
+  });
+
+  test('returns false for null', () => {
+    expect(isPayPeriod(null)).toBe(false);
+  });
 });
 
 // ── 4.2 generatePayPeriods ───────────────────────────────────────────────────

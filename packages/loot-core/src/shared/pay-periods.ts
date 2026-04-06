@@ -17,7 +17,8 @@ export type PayPeriod = {
  * Returns true if the given ID is a pay period ID (MM ≥ 13).
  * Pay periods use the YYYY-MM format with MM values 13–99.
  */
-export function isPayPeriod(id: string): boolean {
+export function isPayPeriod(id: string | undefined | null): boolean {
+  if (id == null) return false;
   const mm = parseInt(id.slice(5, 7), 10);
   return mm >= 13;
 }
@@ -307,12 +308,16 @@ export function generatePayPeriodRange(
  *   position of this period among all periods that start in the same
  *   calendar month.
  *
+ * 'short' format: '{startDate} - {endDate}' — e.g. 'Jan 5 - Jan 18'
+ *   Date range only, without the period number suffix. Used on mobile
+ *   where horizontal space is constrained.
+ *
  * 'summary' format: '{startDate} - {endDate} (PP{globalN})' — e.g. 'Jan 5 - Jan 18 (PP1)'
  */
 export function getPayPeriodLabel(
   monthId: string,
   config: PayPeriodConfig,
-  format: 'picker' | 'summary' = 'summary',
+  format: 'picker' | 'short' | 'summary' = 'summary',
   locale?: Locale,
 ): string {
   const year = parseInt(monthId.slice(0, 4), 10);
@@ -354,7 +359,12 @@ export function getPayPeriodLabel(
     return `${monthLetter}${withinMonthCount}`;
   }
 
-  // 'summary' format
   const formatDate = (dt: Date) => d.format(dt, 'MMM d', { locale });
+
+  if (format === 'short') {
+    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+  }
+
+  // 'summary' format
   return `${formatDate(startDate)} - ${formatDate(endDate)} (PP${periodNumber})`;
 }

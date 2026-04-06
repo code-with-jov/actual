@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import {
   SvgCheveronLeft,
   SvgCheveronRight,
+  SvgLoadBalancer,
 } from '@actual-app/components/icons/v1';
 import { SvgCalendar } from '@actual-app/components/icons/v2';
 import { styles } from '@actual-app/components/styles';
@@ -27,6 +28,8 @@ type MonthPickerProps = {
   monthBounds: MonthBounds;
   style: CSSProperties;
   onSelect: (month: string) => void;
+  onTogglePayPeriods?: () => void;
+  payPeriodsActive?: boolean;
 };
 
 export const MonthPicker = ({
@@ -35,6 +38,8 @@ export const MonthPicker = ({
   monthBounds,
   style,
   onSelect,
+  onTogglePayPeriods,
+  payPeriodsActive,
 }: MonthPickerProps) => {
   const locale = useLocale();
   const { t } = useTranslation();
@@ -89,6 +94,36 @@ export const MonthPicker = ({
           justifyContent: 'center',
         }}
       >
+        {onTogglePayPeriods && (
+          <Link
+            variant="button"
+            buttonVariant="bare"
+            aria-label={t('Toggle pay period budgeting')}
+            onPress={onTogglePayPeriods}
+            style={{
+              padding: '3px 3px',
+              marginRight: '12px',
+            }}
+          >
+            <View
+              title={
+                payPeriodsActive
+                  ? t('Disable pay periods')
+                  : t('Enable pay periods')
+              }
+            >
+              <SvgLoadBalancer
+                style={{
+                  width: 16,
+                  height: 16,
+                  color: payPeriodsActive
+                    ? theme.pageTextPositive
+                    : theme.pageTextSubdued,
+                }}
+              />
+            </View>
+          </Link>
+        )}
         <Link
           variant="button"
           buttonVariant="bare"

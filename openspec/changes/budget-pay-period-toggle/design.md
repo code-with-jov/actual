@@ -1,0 +1,170 @@
+## Context
+
+The pay period engine and all downstream calculations are fully implemented. The `payPeriodsEnabled` feature flag gates the entire feature and defaults to `false`. When enabled by the user in Experimental settings, the feature is fully functional — it simply lacks a convenient toggle on the Budget page.
+
+`PayPeriodSettings.tsx` currently owns the enable/disable checkbox alongside frequency and start-date config. This change splits that: the checkbox (enable/disable) moves to the Budget page; frequency and start date remain in Settings.
+
+---
+
+## Goals / Non-Goals
+
+**Goals:**
+
+- `useTogglePayPeriods` hook: apply defaults, write prefs, return toggle state to both desktop and mobile
+- Desktop: `SvgLoadBalancer` toggle button in `MonthPicker`, left of the Today button, with clear active/inactive visual
+- Mobile: "Enable/Disable pay period budgeting" menu item in `BudgetPageMenuModal`
+- `PayPeriodSettings`: remove enable/disable UI (checkbox, `handleToggle`, `validationError`, "Disable" button)
+
+**Non-Goals:**
+
+- Graduating the `payPeriodsEnabled` feature flag
+- Changing pay period engine or calculation logic
+- Redesigning `MonthPicker` layout beyond the added button
+
+---
+
+## Decisions
+
+### D1: `useTogglePayPeriods` hook encapsulates defaults + pref writes
+
+**Decision**: Create `packages/desktop-client/src/hooks/useTogglePayPeriods.ts`. The hook:
+
+1. Reads `showPayPeriods`, `payPeriodFrequency`, `payPeriodStartDate` via `useSyncedPref`
+2. Returns `{ payPeriodsActive: boolean, togglePayPeriods: () => void }`
+3. `togglePayPeriods()`: when enabling, if `payPeriodStartDate` is empty set it to the first day of the current calendar month (`monthUtils.currentMonth()` gives `YYYY-MM`; append `-01`); if `payPeriodFrequency` is empty set it to `'monthly'`; then flip `showPayPeriods`
+
+**Rationale**: Avoids duplicating the defaults logic in both `DynamicBudgetTable.tsx` (desktop) and `BudgetPage.tsx` (mobile). Consistent with the hook-heavy pattern already in use (`useSyncedPref`, `useLocalPref`, `useFeatureFlag`).
+
+**Alternative considered**: Inline the logic in each call site. Rejected — two call sites means two places to maintain the defaults logic.
+
+### D2: Desktop toggle lives in `MonthPicker`, not `BudgetPageHeader` or `DynamicBudgetTable`
+
+**Decision**: Add the toggle button directly inside `MonthPicker.tsx`'s inner flex row, as the first element before the Today button. `MonthPicker` receives two new props: `onTogglePayPeriods?: () => void` and `payPeriodsActive?: boolean`.
+
+**Rationale**: `MonthPicker` owns the entire navigation row. Placing the button there keeps the row cohesive and avoids adding a second row or modifying `BudgetPageHeader`'s margin calculations. The props are optional so the picker can be used without pay period support if needed.
+
+**Prop threading chain**: `DynamicBudgetTable` → `BudgetPageHeader` → `MonthPicker`.
+
+### D3: Toggle button uses `SvgLoadBalancer` from `@actual-app/components/icons/v1`
+
+**Decision**: Import `SvgLoadBalancer` from `@actual-app/components/icons/v1`. Render it inside a `Link` (variant `"button"`, buttonVariant `"bare"`) matching the style of the Today and chevron buttons.
+
+Active state visual: when `payPeriodsActive` is true, apply `color: theme.pageTextPositive` (or equivalent accent color). When inactive, use `color: theme.pageTextSubdued`. This follows the existing pattern for toggled icon buttons in the codebase.
+
+**Rationale**: `SvgLoadBalancer` is available in the repository's icon set. The active/inactive color distinction (accent vs subdued) is the simplest and most accessible indicator, consistent with how other toggle states are shown (e.g., `showHiddenCategories` in mobile menu).
+
+### D4: `DynamicBudgetTable` is the gating point for the feature flag
+
+**Decision**: `DynamicBudgetTable` calls `useFeatureFlag('payPeriodsEnabled')` and only passes `onTogglePayPeriods` and `payPeriodsActive` down to `BudgetPageHeader` → `MonthPicker` when the flag is true. When false, the props are not passed and the button is not rendered.
+
+**Rationale**: Centralizes the flag check in one place (matching the existing pattern in `budget/index.tsx`). `MonthPicker` and `BudgetPageHeader` remain unaware of the feature flag.
+
+### D5: Mobile toggle in `BudgetPageMenuModal` as a text menu item
+
+**Decision**: Add a `toggle-pay-periods` case to `BudgetPageMenuModal` with text `t('Enable pay period budgeting')` when inactive and `t('Disable pay period budgeting')` when active. The modal receives `onTogglePayPeriods` and `payPeriodsActive` in its options. `BudgetPage.tsx` passes these from the `useTogglePayPeriods()` hook result.
+
+**Rationale**: Mobile's primary budget page action surface is the `budget-page-menu` modal. Adding a text item here is consistent with "Toggle hidden categories" already in the same menu. No new UI patterns needed.
+
+**Feature flag gating on mobile**: `BudgetPage.tsx` already reads `isPayPeriodsEnabled` via `useFeatureFlag`. The `onOpenBudgetPageMenu` callback only includes `onTogglePayPeriods`/`payPeriodsActive` in the modal options when `isPayPeriodsEnabled` is true.
+
+### D6: `PayPeriodSettings` retains frequency and start date config
+
+**Decision**: Remove: the `Checkbox`, its `label`, the `enabled` derived state, `handleToggle`, `validationError` state, `setValidationError` calls, the validation error `Text`, `frequencyWarning` related to enabling, and the "Disable pay periods" `Button`. Retain: the pay frequency `Select`, the start date `input`, and the `frequencyWarning` shown when frequency changes while periods are active.
+
+**Rationale**: Users still need to configure frequency and start date. The Settings page remains the right place for that configuration. The enable/disable action moving to Budget page does not change the need for this config.
+
+**Note on `frequencyWarning`**: The warning "Changing frequency will reset period numbering" was previously shown when periods are enabled. Since `enabled` state is removed, check `showPayPeriods === 'true'` directly from the pref instead. The warning logic itself is unchanged.
+
+### D8: Mobile uses `'short'` label format — no `(PPX)` suffix
+
+**Decision**: Add a `'short'` format to `getPayPeriodLabel` in `pay-periods.ts`. The short format returns `{startDate} - {endDate}` (e.g. `Jan 5 - Jan 18`) with no period-number suffix. All three mobile call sites pass `'short'` instead of `'summary'`:
+
+- `BudgetPage.tsx` line 511 — category group row labels
+- `BudgetPage.tsx` `MonthSelector` — header label
+- `CategoryPage.tsx` — category page header
+
+Desktop call sites continue to pass `'summary'` unchanged.
+
+**Rationale**: The mobile header bar has a logo button on the left and a calendar button on the right, leaving only the center strip for the title. With the existing `'summary'` format (`Jan 5 - Jan 18 (PP1)`), the ~6-character `(PP1)` suffix causes the label to overflow or truncate on small screens. The period number is supplemental information — users already know they're in pay period mode — so omitting it on mobile is a clean trade-off. Adding a dedicated `'short'` format keeps the function expressive and avoids mobile-specific string manipulation at call sites.
+
+**Alternative considered**: String-manipulate the summary label at call sites (e.g., `label.replace(/\s+\(PP\d+\)$/, '')`). Rejected — fragile, locale-dependent, and leaks knowledge of the format string into every mobile component.
+
+---
+
+### D7: Budget engine must be reconnected on toggle (runtime bug)
+
+**Root cause**: Moving the toggle from Settings to the Budget page exposed a latent initialization gap. When the toggle lived in Settings, navigating away from the Budget page caused it to unmount and remount — `init()` re-ran on every visit, so `payPeriodConfig` was always fresh. With the toggle now on the Budget page, `init()` only runs once on mount. Two subsystems that depended on mount-time initialization are never told to re-initialize when the pref changes:
+
+1. **Server** (`preferences/app.ts`): `saveSyncedPrefs` updates `payPeriodConfig` in sheet meta but never calls `createAllBudgets(updatedConfig)`. Pay period budget sheets (`budget202613`, etc.) are never created. `envelope-budget-month` reads from a sheet that doesn't exist and returns 0 for all values — including `sum-amount-<catId>` (spent).
+
+2. **Client** (`budget/index.tsx`): The `init` effect runs once on mount. When pay periods are toggled, the `bounds` state (regular month IDs from the initial `get-budget-bounds` call) is never refreshed. `getValidMonth` clips any pay period ID to the regular-month `bounds.end`, making navigation to pay period months impossible. The spreadsheet prewarm cache also has no entries for pay period sheets.
+
+**Decision**:
+
+*Server*: No change to `saveSyncedPrefs`. It already updates `sheet.meta().payPeriodConfig` before responding — that is sufficient. `createAllBudgets` must **not** be called here (see rationale below).
+
+*Client*: In `budget/index.tsx`, add a `useEffectEvent` (`onPayPeriodConfigChange`) that re-runs `get-budget-bounds` + `setBounds` + `prewarmAllMonths`, and wire it to a `useEffect` that fires when `payPeriodConfig` changes. Guard with `if (!initialized) return` so it does not double-fire on the initial mount (where `init()` already handles setup). Sheet creation happens inside `getBudgetBounds()` on the server, which already calls `createAllBudgets(payPeriodConfig)`.
+
+**Why `createAllBudgets` belongs in `getBudgetBounds`, not `saveSyncedPrefs`**:
+The server handler `getBudgetBounds()` already calls `budget.createAllBudgets(payPeriodConfig)` and returns the resulting bounds. The server worker processes messages sequentially, so `get-budget-bounds` is always queued after `preferences/save` — by the time `getBudgetBounds` runs, `sheet.meta().payPeriodConfig` already holds the updated config. Sheet creation happens exactly where it needs to, with no extra coupling to `saveSyncedPrefs`.
+
+Calling `createAllBudgets` inside `saveSyncedPrefs` blocks the entire pref-save response on full sheet creation. On a fresh file, this means creating ~50+ period sheets before the server responds, which delays the Redux `mergeSyncedPrefs` dispatch, which delays `payPeriodConfig` updating in React, which delays the UI re-rendering with PP labels. The result is a visible UI freeze on the toggle click and Playwright timeouts. Keeping sheet creation in `getBudgetBounds` means the pref save returns immediately, Redux updates immediately, and the UI re-renders instantly.
+
+**Alternative considered — `createAllBudgets` in `saveSyncedPrefs`** (original D7 decision, revised): Previously preferred for self-containment. Rejected after observing it caused blocking UI freezes and Playwright test timeouts on fresh files where many sheets needed creation.
+
+**Alternative considered — eager creation on initial load only, lazy creation on toggle**: The server could create sheets lazily when `envelope-budget-month` is called with an unknown sheet ID. Rejected — requires changes to spreadsheet infrastructure, out of scope.
+
+---
+
+### D9: Mixed-format crash during toggle — `startMonth` + `displayBounds` fix
+
+**Root cause**: The `onPayPeriodConfigChange` effect (D7) introduced a one-render window where three values are in conflicting formats after toggle:
+
+| Value | Sync/Async | State on first render after toggle |
+|---|---|---|
+| `payPeriodConfig.enabled` | Synchronous (React pref) | ✓ new value |
+| `startMonthPref` | Persisted local pref (lazy) | ✗ old format |
+| `bounds` | Server RPC (async) | ✗ old format |
+
+On that first render, `startMonth` derived from the stale pref produces a calendar ID while `payPeriodConfig` is already in PP mode. `getValidMonthBounds` then produces a mixed-format pair (PP start, calendar end), and `rangeInclusive` throws on mixed-format input — caught by the React error boundary and shown as a Fatal Error dialog.
+
+**Decision**: Fix both mismatches in `budget/index.tsx`, co-located with the state they protect:
+
+1. **Symmetric `startMonth` rule** — replace the one-directional disable-only guard with a single symmetric check: if the persisted pref's format doesn't match the current mode, fall back to `currentMonth` (which is computed from `payPeriodConfig` and is always format-correct):
+   ```typescript
+   const startMonth =
+     startMonthPref && isPayPeriod(startMonthPref) === payPeriodConfig.enabled
+       ? startMonthPref
+       : currentMonth;
+   ```
+
+2. **Derived `displayBounds`** — compute a format-safe view of `bounds` inline, immediately after `bounds` state is declared. If `bounds` is in the old format (hasn't been refreshed by the RPC yet), fall back to `{ start: startMonth, end: startMonth }`. Pass `displayBounds` to the table instead of `bounds`:
+   ```typescript
+   const displayBounds =
+     isPayPeriod(bounds.start) === payPeriodConfig.enabled
+       ? bounds
+       : { start: startMonth, end: startMonth };
+   ```
+
+**Why the fallback to a single-period range is acceptable UX**: The fallback only activates for the one render between the toggle click and the `onPayPeriodConfigChange` RPC returning. In practice this is imperceptible — the user sees a single pay period for a frame, then the full PP range renders as the RPC resolves.
+
+**Alternatives considered**:
+
+- *Fix in `MonthsContext.tsx`*: Import `isPayPeriod` into `MonthsProvider`, rename `bounds` → `rawBounds`, add a mismatch guard before calling `rangeInclusive`. Rejected — `MonthsContext` has no business knowing about pay period toggle semantics; the guard belongs with the state owner.
+- *Fix in `getValidMonthBounds`*: Add a format-mismatch early-return. Cleaner than touching `MonthsContext` but still downstream of where the state lives.
+- *Transition flag*: Set `isTransitioning = true` during the RPC, render `null` for the table. Rejected — causes a visible flash/blank on every toggle.
+- *Eager `setStartMonthPref` in toggle handler*: Call `setStartMonthPref(currentMonth)` synchronously in `togglePayPeriods`. Rejected — `useTogglePayPeriods` has no access to the PP-format `currentMonth`; `bounds` would still be stale.
+
+**No changes required outside `budget/index.tsx`**: `MonthsContext.tsx`, `rangeInclusive`, and `getValidMonthBounds` remain untouched.
+
+---
+
+## Risks / Trade-offs
+
+- **Prop threading depth**: Toggle state threads through `DynamicBudgetTable → BudgetPageHeader → MonthPicker`. This is three levels but each step is a single prop pair — acceptable given existing patterns in the codebase.
+- **`BudgetPageMenuModal` type update**: `modalsSlice.ts` defines the `budget-page-menu` options type. Adding optional props (`onTogglePayPeriods?: () => void`, `payPeriodsActive?: boolean`) is a non-breaking change.
+- **Default start date**: Setting start date to first day of current month (`${monthUtils.currentMonth()}-01`) may not match the user's actual pay schedule, but it provides a valid default that surfaces pay periods immediately. Users can correct it in Settings.
+
+## Migration Plan
+
+Pure UI change. No data migration, database changes, or backwards-compatibility concerns. The `payPeriodsEnabled` feature flag continues to gate the entire feature.

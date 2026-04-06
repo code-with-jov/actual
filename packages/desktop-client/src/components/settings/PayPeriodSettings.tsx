@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
-import { Button } from '@actual-app/components/button';
 import { Select } from '@actual-app/components/select';
 import { Text } from '@actual-app/components/text';
 import { theme } from '@actual-app/components/theme';
@@ -9,11 +8,7 @@ import { View } from '@actual-app/components/view';
 
 import { Setting } from './UI';
 
-import {
-  Checkbox,
-  FormField,
-  FormLabel,
-} from '@desktop-client/components/forms';
+import { FormField, FormLabel } from '@desktop-client/components/forms';
 import { useSyncedPref } from '@desktop-client/hooks/useSyncedPref';
 
 const FREQUENCY_OPTIONS: [string, string][] = [
@@ -24,37 +19,16 @@ const FREQUENCY_OPTIONS: [string, string][] = [
 
 export function PayPeriodSettings() {
   const { t } = useTranslation();
-  const [showPayPeriods, setShowPayPeriods] = useSyncedPref('showPayPeriods');
+  const [showPayPeriods] = useSyncedPref('showPayPeriods');
   const [payPeriodFrequency, setPayPeriodFrequency] =
     useSyncedPref('payPeriodFrequency');
   const [payPeriodStartDate, setPayPeriodStartDate] =
     useSyncedPref('payPeriodStartDate');
 
-  const enabled = showPayPeriods === 'true';
-  const [validationError, setValidationError] = useState<string | null>(null);
   const [frequencyWarning, setFrequencyWarning] = useState(false);
 
-  const handleToggle = () => {
-    if (!enabled) {
-      if (!payPeriodStartDate) {
-        setValidationError(
-          t('A start date is required before enabling pay periods.'),
-        );
-        return;
-      }
-      if (!payPeriodFrequency) {
-        setValidationError(
-          t('A frequency is required before enabling pay periods.'),
-        );
-        return;
-      }
-    }
-    setValidationError(null);
-    setShowPayPeriods(enabled ? 'false' : 'true');
-  };
-
   const handleFrequencyChange = (freq: string) => {
-    if (enabled) {
+    if (showPayPeriods === 'true') {
       setFrequencyWarning(true);
     }
     setPayPeriodFrequency(freq);
@@ -65,28 +39,6 @@ export function PayPeriodSettings() {
       <Setting
         primaryAction={
           <View style={{ gap: 10 }}>
-            <View
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
-            >
-              <Checkbox
-                id="settings-showPayPeriods"
-                checked={enabled}
-                onChange={handleToggle}
-              />
-              <label
-                htmlFor="settings-showPayPeriods"
-                style={{ cursor: 'pointer' }}
-              >
-                <Trans>Enable pay period budgeting</Trans>
-              </label>
-            </View>
-
-            {validationError && (
-              <Text style={{ color: theme.errorText, fontSize: 13 }}>
-                {validationError}
-              </Text>
-            )}
-
             <FormField>
               <FormLabel
                 title={t('Pay frequency')}
@@ -120,7 +72,6 @@ export function PayPeriodSettings() {
                 value={payPeriodStartDate || ''}
                 onChange={e => {
                   setPayPeriodStartDate(e.target.value);
-                  setValidationError(null);
                 }}
                 style={{
                   padding: '4px 8px',
@@ -132,18 +83,6 @@ export function PayPeriodSettings() {
                 }}
               />
             </FormField>
-
-            {enabled && (
-              <Button
-                onPress={() => {
-                  setShowPayPeriods('false');
-                  setValidationError(null);
-                }}
-                style={{ alignSelf: 'flex-start' }}
-              >
-                <Trans>Disable pay periods</Trans>
-              </Button>
-            )}
           </View>
         }
       >
