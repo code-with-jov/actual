@@ -37,6 +37,7 @@ export function EnvelopeBudgetMonthMenuModal({
   month,
   onBudgetAction,
   onEditNotes,
+  payPeriodConfig,
 }: EnvelopeBudgetMonthMenuModalProps) {
   const locale = useLocale();
   const originalNotes = useNotes(`budget-${month}`);
@@ -67,7 +68,7 @@ export function EnvelopeBudgetMonthMenuModal({
     setShowMore(!showMore);
   };
 
-  const displayMonth = monthUtils.format(month, "MMMM ''yy", locale);
+  const displayMonth = monthUtils.nameForMonth(month, locale, payPeriodConfig);
   const { t } = useTranslation();
 
   return (

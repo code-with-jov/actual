@@ -91,9 +91,9 @@ The `'short'` format for `getPayPeriodLabel` (omitting the `(PPX)` suffix on mob
 
 **Decision**:
 
-*Server*: No change to `saveSyncedPrefs`. It already updates `sheet.meta().payPeriodConfig` before responding — that is sufficient. `createAllBudgets` must **not** be called here (see rationale below).
+_Server_: No change to `saveSyncedPrefs`. It already updates `sheet.meta().payPeriodConfig` before responding — that is sufficient. `createAllBudgets` must **not** be called here (see rationale below).
 
-*Client*: In `budget/index.tsx`, add a `useEffectEvent` (`onPayPeriodConfigChange`) that re-runs `get-budget-bounds` + `setBounds` + `prewarmAllMonths`, and wire it to a `useEffect` that fires when `payPeriodConfig` changes. Guard with `if (!initialized) return` so it does not double-fire on the initial mount (where `init()` already handles setup). Sheet creation happens inside `getBudgetBounds()` on the server, which already calls `createAllBudgets(payPeriodConfig)`.
+_Client_: In `budget/index.tsx`, add a `useEffectEvent` (`onPayPeriodConfigChange`) that re-runs `get-budget-bounds` + `setBounds` + `prewarmAllMonths`, and wire it to a `useEffect` that fires when `payPeriodConfig` changes. Guard with `if (!initialized) return` so it does not double-fire on the initial mount (where `init()` already handles setup). Sheet creation happens inside `getBudgetBounds()` on the server, which already calls `createAllBudgets(payPeriodConfig)`.
 
 **Why `createAllBudgets` belongs in `getBudgetBounds`, not `saveSyncedPrefs`**:
 The server handler `getBudgetBounds()` already calls `budget.createAllBudgets(payPeriodConfig)` and returns the resulting bounds. The server worker processes messages sequentially, so `get-budget-bounds` is always queued after `preferences/save` — by the time `getBudgetBounds` runs, `sheet.meta().payPeriodConfig` already holds the updated config. Sheet creation happens exactly where it needs to, with no extra coupling to `saveSyncedPrefs`.
@@ -120,17 +120,18 @@ Calling `createAllBudgets` inside `saveSyncedPrefs` blocks the entire pref-save 
 
 **Root cause**: The `onPayPeriodConfigChange` effect (D7) introduced a one-render window where three values are in conflicting formats after toggle:
 
-| Value | Sync/Async | State on first render after toggle |
-|---|---|---|
-| `payPeriodConfig.enabled` | Synchronous (React pref) | ✓ new value |
-| `startMonthPref` | Persisted local pref (lazy) | ✗ old format |
-| `bounds` | Server RPC (async) | ✗ old format |
+| Value                     | Sync/Async                  | State on first render after toggle |
+| ------------------------- | --------------------------- | ---------------------------------- |
+| `payPeriodConfig.enabled` | Synchronous (React pref)    | ✓ new value                        |
+| `startMonthPref`          | Persisted local pref (lazy) | ✗ old format                       |
+| `bounds`                  | Server RPC (async)          | ✗ old format                       |
 
 On that first render, `startMonth` derived from the stale pref produces a calendar ID while `payPeriodConfig` is already in PP mode. `getValidMonthBounds` then produces a mixed-format pair (PP start, calendar end), and `rangeInclusive` throws on mixed-format input — caught by the React error boundary and shown as a Fatal Error dialog.
 
 **Decision**: Fix both mismatches in `budget/index.tsx`, co-located with the state they protect:
 
 1. **Symmetric `startMonth` rule** — replace the one-directional disable-only guard with a single symmetric check: if the persisted pref's format doesn't match the current mode, fall back to `currentMonth` (which is computed from `payPeriodConfig` and is always format-correct):
+
    ```typescript
    const startMonth =
      startMonthPref && isPayPeriod(startMonthPref) === payPeriodConfig.enabled
@@ -150,12 +151,116 @@ On that first render, `startMonth` derived from the stale pref produces a calend
 
 **Alternatives considered**:
 
-- *Fix in `MonthsContext.tsx`*: Import `isPayPeriod` into `MonthsProvider`, rename `bounds` → `rawBounds`, add a mismatch guard before calling `rangeInclusive`. Rejected — `MonthsContext` has no business knowing about pay period toggle semantics; the guard belongs with the state owner.
-- *Fix in `getValidMonthBounds`*: Add a format-mismatch early-return. Cleaner than touching `MonthsContext` but still downstream of where the state lives.
-- *Transition flag*: Set `isTransitioning = true` during the RPC, render `null` for the table. Rejected — causes a visible flash/blank on every toggle.
-- *Eager `setStartMonthPref` in toggle handler*: Call `setStartMonthPref(currentMonth)` synchronously in `togglePayPeriods`. Rejected — `useTogglePayPeriods` has no access to the PP-format `currentMonth`; `bounds` would still be stale.
+- _Fix in `MonthsContext.tsx`_: Import `isPayPeriod` into `MonthsProvider`, rename `bounds` → `rawBounds`, add a mismatch guard before calling `rangeInclusive`. Rejected — `MonthsContext` has no business knowing about pay period toggle semantics; the guard belongs with the state owner.
+- _Fix in `getValidMonthBounds`_: Add a format-mismatch early-return. Cleaner than touching `MonthsContext` but still downstream of where the state lives.
+- _Transition flag_: Set `isTransitioning = true` during the RPC, render `null` for the table. Rejected — causes a visible flash/blank on every toggle.
+- _Eager `setStartMonthPref` in toggle handler_: Call `setStartMonthPref(currentMonth)` synchronously in `togglePayPeriods`. Rejected — `useTogglePayPeriods` has no access to the PP-format `currentMonth`; `bounds` would still be stale.
 
 **No changes required outside `budget/index.tsx`**: `MonthsContext.tsx`, `rangeInclusive`, and `getValidMonthBounds` remain untouched.
+
+### D10: `resolveStartMonth` utility ensures `startMonth` format matches current mode (both directions)
+
+**Decision**: Add `monthUtils.resolveStartMonth(stored, config, fallback)` to `months.ts`. It returns `stored` when its format matches the current mode (both are PP or both are calendar), and `fallback` otherwise. Use it in both `budget/index.tsx` and `mobile/budget/BudgetPage.tsx` to replace their respective `startMonth` derivation expressions.
+
+```typescript
+// months.ts — isPayPeriod already imported
+export function resolveStartMonth(
+  stored: string | undefined | null,
+  config: PayPeriodConfig | undefined,
+  fallback: string,
+): string {
+  const ppActive = config?.enabled === true;
+  return stored && isPayPeriod(stored) === ppActive ? stored : fallback;
+}
+
+// Desktop (budget/index.tsx) — replaces: startMonthPref || currentMonth
+const startMonth = monthUtils.resolveStartMonth(
+  startMonthPref,
+  payPeriodConfig,
+  currentMonth,
+);
+
+// Mobile (BudgetPage.tsx) — replaces the 4-line conditional block
+const startMonth = monthUtils.resolveStartMonth(
+  storedStartMonth,
+  payPeriodConfig,
+  currMonth,
+);
+```
+
+**Symmetric guard — both directions**:
+
+- **Enable** (PP mode on, pref is calendar `'2026-03'`): `isPayPeriod('2026-03') === true` → false, falls back to `currMonth` (a PP ID) ✓
+- **Disable** (PP mode off, pref is `'2026-18'`): `isPayPeriod('2026-18') === false` → false, falls back to `currentMonth` (a calendar ID) ✓
+
+`config?.enabled === true` handles both the desktop pattern (`config` always has `enabled: boolean`) and the mobile pattern (`config` is `undefined` when disabled).
+
+**Why 2 call sites, not 4**: `budget/index.tsx` handles both envelope and tracking budget types internally via a `budgetType` switch. Same for mobile `BudgetPage.tsx`. There are no separate per-budget-type components that read `budget.startMonth`.
+
+**`resolveBounds` stays inline**: The parallel guard on `bounds` state (`displayBounds`) is 3 lines and depends on co-located `startMonth` — not worth extracting.
+
+**Rationale**: Without this guard, a stale pay period ID in `localStorage` survives the toggle and reaches `MonthPicker.tsx`, where `addMonths(stalePPId, n, undefined)` calls `_parse` without a config and throws. The utility is in `months.ts` because `isPayPeriod` is already imported there and the function is a pure month-ID utility with no component knowledge.
+
+**Alternative considered**: `useEffect(() => { if (mismatch) setStartMonthPref(currMonth); }, [...])`. Rejected — on mobile, `startMonth` is in `init()`'s dep array, so the pref write immediately re-triggers initialization (render loop).
+
+---
+
+### D12: `saveSyncedPrefs` must apply optimistic Redux updates before awaiting IPC
+
+**Decision**: In `prefsSlice.ts`, dispatch `mergeSyncedPrefs(prefs)` _before_ the `await Promise.all(...)` IPC call, not after.
+
+```typescript
+// Before (pessimistic — Redux only updates after IPC round-trip):
+await Promise.all(Object.entries(prefs).map(...send('preferences/save', ...)));
+dispatch(mergeSyncedPrefs(prefs));
+
+// After (optimistic — Redux updates immediately):
+dispatch(mergeSyncedPrefs(prefs));
+await Promise.all(Object.entries(prefs).map(...send('preferences/save', ...)));
+```
+
+**Rationale**: Two production bugs stem directly from the pessimistic pattern:
+
+1. **Silent `handleToggle` failure**: `handleToggle` reads `payPeriodStartDate` from Redux (`useSyncedPref` → `useSelector`). If the user fills the start-date input and clicks the enable checkbox before the `payPeriodStartDate` IPC round-trip completes, `handleToggle` sees `undefined`, shows a validation error, and returns early — `showPayPeriods` is never saved to `'true'`. The UI shows the date the user entered, but PP enabling silently fails.
+
+2. **Budget page stale render**: Even when `handleToggle` succeeds, if the user navigates to the budget page before the `showPayPeriods` IPC completes, `payPeriodConfig` is `undefined` on first render. The heading shows the old calendar label and never self-corrects — the `init()` re-run that would fix it only triggers when `startMonth` changes, which requires `payPeriodConfig` to have already updated.
+
+Both bugs are eliminated by updating Redux first: `useSyncedPref` readers see the new value on the same render that the setter was called.
+
+**Risk**: If `preferences/save` fails (local SQLite write — essentially never), Redux holds a value that doesn't match persisted state until the next `load-prefs` on app restart. Acceptable: local pref writes are not expected to fail, and the consequence is a transient stale render, not data loss.
+
+**Scope**: Only `saveSyncedPrefs` is changed. `savePrefs` (local/metadata prefs) and `saveGlobalPrefs` retain their current pessimistic pattern — they are not in this bug's path.
+
+---
+
+### D11: `currentMonth(config)` must honour Playwright mock date when `config.enabled`
+
+**Decision**: In `months.ts`, hoist the `Platform.isPlaywright` / `global.IS_TESTING` guard above the `config?.enabled` branch so that `getCurrentPayPeriod` receives the mocked date instead of `new Date()`.
+
+**Rationale**: The original code entered the `config?.enabled` branch first and called `new Date()` (real date), bypassing the `global.currentMonth` mock entirely. In Playwright tests where `global.currentMonth = '2017-01'`, `currentMonth(payPeriodConfig)` returned a period ID anchored to April 2026, making all heading assertions fail. The fix is a one-line reorder — test mode always wins over `config.enabled`.
+
+**Scope**: No behaviour change in non-test environments.
+
+---
+
+### D13: Envelope modals must receive `payPeriodConfig` to handle PP month IDs
+
+**Root cause**: Two mobile modal components crash at render time when the active month is a pay period ID (MM ≥ 13):
+
+- **`EnvelopeBudgetMonthMenuModal`** (line ~70): `monthUtils.format(month, "MMMM ''yy", locale)` → calls `_parse(month)` → throws because `date-fns` rejects month 13+ in a date string.
+- **`EnvelopeBudgetSummaryModal`** (line ~45): `prevMonth(month)` without config → the `config`-less branch calls `_parse(month)` → same throw.
+
+Both crashes surface as the React error boundary's "Fatal Error" dialog, failing the month-menu and budget-summary modal tests.
+
+**Decision**: Add `payPeriodConfig?: PayPeriodConfig` to both modal option types in `modalsSlice.ts`. Pass it from `BudgetPage.tsx` when dispatching those modals. Fix the two crash sites:
+
+1. `EnvelopeBudgetMonthMenuModal`: replace `monthUtils.format(month, "MMMM ''yy", locale)` with `monthUtils.nameForMonth(month, locale, payPeriodConfig)`. `nameForMonth` routes to `getPayPeriodLabel(…, 'summary')` for PP IDs (e.g. "Jan 5 - Jan 18 (PP1)") and to the existing `"MMMM ''yy"` path for calendar months.
+
+2. `EnvelopeBudgetSummaryModal`: replace `formatMonth(prevMonth(month), 'MMM', locale)` with `nameForMonth(prevMonth(month, payPeriodConfig), locale, payPeriodConfig, true)`. The `short=true` flag gives 'MMM' for calendar months (same as before) and 'picker' format for PP months — acceptable since `prevMonthName` is only a display label in "Overspent in …" text, not a spreadsheet key.
+
+**Why `payPeriodConfig` as a prop rather than reading prefs inside the modal**: The modal components are already instantiated with a `month` that encodes the budget mode. Passing `payPeriodConfig` alongside `month` makes the data dependency explicit and keeps the modals stateless. Reading four `useSyncedPref` hooks inside each modal would duplicate the config-assembly logic that `BudgetPage.tsx` already owns.
+
+**Scope**: `envelope-budget-month-menu` and `envelope-budget-summary` only. The tracking-budget equivalents receive calendar months and are unaffected.
 
 ---
 

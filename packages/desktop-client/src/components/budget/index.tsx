@@ -66,11 +66,22 @@ export function Budget() {
     'budget.summaryCollapsed',
   );
   const [startMonthPref, setStartMonthPref] = useLocalPref('budget.startMonth');
-  const startMonth = startMonthPref || currentMonth;
+  const startMonth = monthUtils.resolveStartMonth(
+    startMonthPref,
+    payPeriodConfig,
+    currentMonth,
+  );
   const [bounds, setBounds] = useState({
     start: startMonth,
     end: startMonth,
   });
+  // Guard against stale bounds from before a toggle — if bounds format doesn't
+  // match the current mode, fall back to a single-period range until the
+  // onPayPeriodConfigChange RPC resolves with fresh bounds.
+  const displayBounds =
+    isPayPeriod(bounds.start) === payPeriodConfig.enabled
+      ? bounds
+      : { start: startMonth, end: startMonth };
   const [budgetType = 'envelope'] = useSyncedPref('budgetType');
   const [maxMonthsPref] = useGlobalPref('maxMonths');
   const maxMonths = maxMonthsPref || 1;
@@ -228,7 +239,7 @@ export function Budget() {
           type={budgetType}
           prewarmStartMonth={startMonth}
           startMonth={startMonth}
-          monthBounds={bounds}
+          monthBounds={displayBounds}
           maxMonths={maxMonths}
           onMonthSelect={onMonthSelect}
           onDeleteCategory={onDeleteCategory}
@@ -254,7 +265,7 @@ export function Budget() {
           type={budgetType}
           prewarmStartMonth={startMonth}
           startMonth={startMonth}
-          monthBounds={bounds}
+          monthBounds={displayBounds}
           maxMonths={maxMonths}
           onMonthSelect={onMonthSelect}
           onDeleteCategory={onDeleteCategory}

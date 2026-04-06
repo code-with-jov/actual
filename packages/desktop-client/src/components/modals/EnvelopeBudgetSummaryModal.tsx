@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { styles } from '@actual-app/components/styles';
 
 import {
-  format as formatMonth,
+  nameForMonth,
   prevMonth,
   sheetForMonth,
 } from 'loot-core/shared/months';
@@ -36,13 +36,19 @@ type EnvelopeBudgetSummaryModalProps = Extract<
 export function EnvelopeBudgetSummaryModal({
   month,
   onBudgetAction,
+  payPeriodConfig,
 }: EnvelopeBudgetSummaryModalProps) {
   const { t } = useTranslation();
   const format = useFormat();
 
   const locale = useLocale();
   const dispatch = useDispatch();
-  const prevMonthName = formatMonth(prevMonth(month), 'MMM', locale);
+  const prevMonthName = nameForMonth(
+    prevMonth(month, payPeriodConfig),
+    locale,
+    payPeriodConfig,
+    true,
+  );
   const sheetValue =
     useEnvelopeSheetValue({
       name: envelopeBudget.toBudget,

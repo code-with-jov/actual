@@ -118,6 +118,11 @@ type SaveSyncedPrefsPayload = {
 export const saveSyncedPrefs = createAppAsyncThunk(
   `${sliceName}/saveSyncedPrefs`,
   async ({ prefs }: SaveSyncedPrefsPayload, { dispatch }) => {
+    // Optimistic update: reflect the new values in Redux immediately so that
+    // any component reading these prefs via useSyncedPref sees the new value
+    // on the same render that triggered the save (e.g. handleToggle reading
+    // payPeriodStartDate right after the start-date input fires onChange).
+    dispatch(mergeSyncedPrefs(prefs));
     await Promise.all(
       Object.entries(prefs).map(([prefName, value]) =>
         send('preferences/save', {
@@ -126,7 +131,6 @@ export const saveSyncedPrefs = createAppAsyncThunk(
         }),
       ),
     );
-    dispatch(mergeSyncedPrefs(prefs));
   },
 );
 
