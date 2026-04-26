@@ -125,8 +125,7 @@ jobs:
           push: true
           file: packages/sync-server/docker/ubuntu.Dockerfile
           # linux/arm/v7  → Raspberry Pi OS (32-bit, the common default)
-          # linux/arm64   → Raspberry Pi OS (64-bit) / Ubuntu for Pi
-          platforms: linux/arm/v7,linux/arm64
+          platforms: linux/arm/v7
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/actual-server:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/actual-server:${{ github.sha }}
