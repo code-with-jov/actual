@@ -13,7 +13,10 @@ import type {
   CategoryEntity,
   CategoryGroupEntity,
 } from '@actual-app/core/types/models';
-import type { SyncedPrefs } from '@actual-app/core/types/prefs';
+import type {
+  PayPeriodConfig,
+  SyncedPrefs,
+} from '@actual-app/core/types/prefs';
 import { t } from 'i18next';
 
 import type { DropPosition } from '#components/sort';
@@ -200,15 +203,16 @@ export async function prewarmAllMonths(
   spreadsheet: ReturnType<typeof useSpreadsheet>,
   bounds: { start: string; end: string },
   startMonth: string,
+  config?: PayPeriodConfig,
 ) {
   const numMonths = 3;
 
   bounds = getValidMonthBounds(
     bounds,
-    monthUtils.subMonths(startMonth, 1),
-    monthUtils.addMonths(startMonth, numMonths + 1),
+    monthUtils.addMonths(startMonth, -1, config),
+    monthUtils.addMonths(startMonth, numMonths + 1, config),
   );
-  const months = monthUtils.rangeInclusive(bounds.start, bounds.end);
+  const months = monthUtils.rangeInclusive(bounds.start, bounds.end, config);
 
   await Promise.all(
     months.map(month => prewarmMonth(budgetType, spreadsheet, month)),

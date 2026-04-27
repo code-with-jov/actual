@@ -6,6 +6,7 @@ import { styles } from '@actual-app/components/styles';
 import { View } from '@actual-app/components/view';
 import { send } from '@actual-app/core/platform/client/connection';
 import * as monthUtils from '@actual-app/core/shared/months';
+import { isPayPeriod } from '@actual-app/core/shared/pay-periods';
 import type {
   CategoryEntity,
   CategoryGroupEntity,
@@ -21,6 +22,7 @@ import {
   useSaveCategoryMutation,
 } from '#budget';
 import { useCategories } from '#hooks/useCategories';
+import { useFeatureFlag } from '#hooks/useFeatureFlag';
 import { useGlobalPref } from '#hooks/useGlobalPref';
 import { useLocalPref } from '#hooks/useLocalPref';
 import { useNavigate } from '#hooks/useNavigate';
@@ -31,12 +33,32 @@ import { useSyncedPref } from '#hooks/useSyncedPref';
 import { AutoSizingBudgetTable } from './DynamicBudgetTable';
 import * as envelopeBudget from './envelope/EnvelopeBudgetComponents';
 import { EnvelopeBudgetProvider } from './envelope/EnvelopeBudgetContext';
+import { PayPeriodProvider } from './PayPeriodContext';
 import * as trackingBudget from './tracking/TrackingBudgetComponents';
 import { TrackingBudgetProvider } from './tracking/TrackingBudgetContext';
 import { prewarmAllMonths, prewarmMonth } from './util';
 
 export function Budget() {
-  const currentMonth = monthUtils.currentMonth();
+  const isPayPeriodsEnabled = useFeatureFlag('payPeriodsEnabled');
+  const [showPayPeriods] = useSyncedPref('showPayPeriods');
+  const [payPeriodFrequency] = useSyncedPref('payPeriodFrequency');
+  const [payPeriodStartDate] = useSyncedPref('payPeriodStartDate');
+  const payPeriodConfig = useMemo(
+    () => ({
+      enabled: isPayPeriodsEnabled && showPayPeriods === 'true',
+      payFrequency:
+        (payPeriodFrequency as 'weekly' | 'biweekly' | 'monthly') ?? 'monthly',
+      startDate: payPeriodStartDate ?? '',
+    }),
+    [
+      isPayPeriodsEnabled,
+      showPayPeriods,
+      payPeriodFrequency,
+      payPeriodStartDate,
+    ],
+  );
+
+  const currentMonth = monthUtils.currentMonth(payPeriodConfig);
   const spreadsheet = useSpreadsheet();
   const navigate = useNavigate();
   const [summaryCollapsed, setSummaryCollapsedPref] = useLocalPref(
@@ -65,6 +87,7 @@ export function Budget() {
         spreadsheet,
         { start, end },
         startMonth,
+        payPeriodConfig,
       );
 
       setInitialized(true);
@@ -99,14 +122,14 @@ export function Budget() {
       await prewarmMonth(
         budgetType,
         spreadsheet,
-        monthUtils.subMonths(month, 1),
+        monthUtils.addMonths(month, -1, payPeriodConfig),
       );
     } else if (month > startMonth) {
       // pre-warm next month
       await prewarmMonth(
         budgetType,
         spreadsheet,
-        monthUtils.addMonths(month, numDisplayed),
+        monthUtils.addMonths(month, numDisplayed, payPeriodConfig),
       );
     }
 
@@ -130,20 +153,35 @@ export function Budget() {
   };
 
   const onShowActivity = (categoryId, month) => {
-    const filterConditions = [
-      { field: 'category', op: 'is', value: categoryId, type: 'id' },
-      {
-        field: 'date',
-        op: 'is',
-        value: month,
-        options: { month: true },
-        type: 'date',
-      },
-    ];
+    let dateFilters;
+    if (isPayPeriod(month)) {
+      const { start, end } = monthUtils.bounds(month, payPeriodConfig);
+      const toDateStr = (n: number) => {
+        const s = String(n);
+        return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+      };
+      dateFilters = [
+        { field: 'date', op: 'gte', value: toDateStr(start), type: 'date' },
+        { field: 'date', op: 'lte', value: toDateStr(end), type: 'date' },
+      ];
+    } else {
+      dateFilters = [
+        {
+          field: 'date',
+          op: 'is',
+          value: month,
+          options: { month: true },
+          type: 'date',
+        },
+      ];
+    }
     void navigate('/accounts', {
       state: {
         goBack: true,
-        filterConditions,
+        filterConditions: [
+          { field: 'category', op: 'is', value: categoryId, type: 'id' },
+          ...dateFilters,
+        ],
         categoryId,
       },
     });
@@ -233,24 +271,28 @@ export function Budget() {
   }
 
   return (
-    <SheetNameProvider name={monthUtils.sheetForMonth(startMonth)}>
-      {/*
-        In a previous iteration, the wrapper needs `overflow: hidden` for
-        some reason. Without it at certain dimensions the width/height
-        that autosizer gives us is slightly wrong, causing scrollbars to
-        appear. We might not need it anymore?
-      */}
-      <View
-        style={{
-          ...styles.page,
-          paddingLeft: 8,
-          paddingRight: 8,
-          overflow: 'hidden',
-        }}
-      >
-        <View style={{ flex: 1 }}>{table}</View>
-      </View>
-    </SheetNameProvider>
+    <PayPeriodProvider
+      config={payPeriodConfig.enabled ? payPeriodConfig : undefined}
+    >
+      <SheetNameProvider name={monthUtils.sheetForMonth(startMonth)}>
+        {/*
+          In a previous iteration, the wrapper needs `overflow: hidden` for
+          some reason. Without it at certain dimensions the width/height
+          that autosizer gives us is slightly wrong, causing scrollbars to
+          appear. We might not need it anymore?
+        */}
+        <View
+          style={{
+            ...styles.page,
+            paddingLeft: 8,
+            paddingRight: 8,
+            overflow: 'hidden',
+          }}
+        >
+          <View style={{ flex: 1 }}>{table}</View>
+        </View>
+      </SheetNameProvider>
+    </PayPeriodProvider>
   );
 }
 

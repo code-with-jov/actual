@@ -10,6 +10,7 @@ import {
 } from '#server/aql';
 import type { BudgetType } from '#server/prefs';
 import type { QueryState } from '#shared/query';
+import type { PayPeriodConfig } from '#types/prefs';
 
 import { Graph } from './graph-data-structure';
 import { resolveName, unresolveName } from './util';
@@ -30,6 +31,7 @@ export class Spreadsheet {
   _meta: {
     createdMonths: Set<string>;
     budgetType: BudgetType;
+    payPeriodConfig?: PayPeriodConfig;
   };
   cacheBarrier;
   computeQueue;

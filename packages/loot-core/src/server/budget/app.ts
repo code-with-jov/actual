@@ -169,7 +169,8 @@ async function getCategories() {
 }
 
 async function getBudgetBounds() {
-  return await budget.createAllBudgets();
+  const { payPeriodConfig } = sheet.get().meta();
+  return await budget.createAllBudgets(payPeriodConfig);
 }
 
 async function envelopeBudgetMonth({ month }: { month: string }) {

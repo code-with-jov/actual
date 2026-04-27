@@ -11,9 +11,21 @@ import {
   savePrefs as _saveMetadataPrefs,
 } from '#server/prefs';
 import { getServer } from '#server/server-config';
+import * as sheet from '#server/sheet';
 import { undoable } from '#server/undo';
 import { stringToInteger } from '#shared/util';
-import type { GlobalPrefs, MetadataPrefs, SyncedPrefs } from '#types/prefs';
+import type {
+  GlobalPrefs,
+  MetadataPrefs,
+  PayPeriodConfig,
+  SyncedPrefs,
+} from '#types/prefs';
+
+const PAY_PERIOD_PREF_KEYS = new Set<keyof SyncedPrefs>([
+  'showPayPeriods',
+  'payPeriodFrequency',
+  'payPeriodStartDate',
+]);
 
 export type PreferencesHandlers = {
   'preferences/save': typeof saveSyncedPrefs;
@@ -35,6 +47,23 @@ app.method('save-prefs', saveMetadataPrefs);
 app.method('load-prefs', loadMetadataPrefs);
 app.method('save-server-prefs', saveServerPrefs);
 
+export async function loadPayPeriodConfig(): Promise<PayPeriodConfig> {
+  const rows = await db.all<Pick<db.DbPreference, 'id' | 'value'>>(
+    `SELECT id, value FROM preferences WHERE id IN ('showPayPeriods', 'payPeriodFrequency', 'payPeriodStartDate')`,
+  );
+  const map: Record<string, string | undefined> = {};
+  for (const row of rows) {
+    map[row.id] = row.value ?? undefined;
+  }
+
+  const enabled = map['showPayPeriods'] === 'true';
+  const payFrequency =
+    (map['payPeriodFrequency'] as PayPeriodConfig['payFrequency']) ?? 'monthly';
+  const startDate = map['payPeriodStartDate'] ?? '';
+
+  return { enabled, payFrequency, startDate };
+}
+
 async function saveSyncedPrefs({
   id,
   value,
@@ -50,6 +79,13 @@ async function saveSyncedPrefs({
     id,
     value,
   });
+
+  // When a pay period pref changes, reload the config into sheet meta so
+  // subsequent budget operations use the updated values.
+  if (PAY_PERIOD_PREF_KEYS.has(id) && sheet.get()) {
+    const updatedConfig = await loadPayPeriodConfig();
+    sheet.get().meta().payPeriodConfig = updatedConfig;
+  }
 }
 
 async function getSyncedPrefs(): Promise<SyncedPrefs> {

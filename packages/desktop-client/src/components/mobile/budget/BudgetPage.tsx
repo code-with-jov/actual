@@ -28,7 +28,12 @@ import { theme } from '@actual-app/components/theme';
 import { View } from '@actual-app/components/view';
 import { send } from '@actual-app/core/platform/client/connection';
 import * as monthUtils from '@actual-app/core/shared/months';
+import {
+  getPayPeriodLabel,
+  isPayPeriod,
+} from '@actual-app/core/shared/pay-periods';
 import { groupById } from '@actual-app/core/shared/util';
+import type { PayPeriodConfig } from '@actual-app/core/types/prefs';
 import type { TransObjectLiteral } from '@actual-app/core/types/util';
 
 import { sync } from '#app/appSlice';
@@ -42,11 +47,13 @@ import {
   useSaveCategoryMutation,
 } from '#budget';
 import { closeBudget } from '#budgetfiles/budgetfilesSlice';
+import { PayPeriodProvider } from '#components/budget/PayPeriodContext';
 import { prewarmMonth } from '#components/budget/util';
 import { FinancialText } from '#components/FinancialText';
 import { MobilePageHeader, Page } from '#components/Page';
 import { SyncRefresh } from '#components/SyncRefresh';
 import { useCategories } from '#hooks/useCategories';
+import { useFeatureFlag } from '#hooks/useFeatureFlag';
 import { useFormat } from '#hooks/useFormat';
 import { useLocale } from '#hooks/useLocale';
 import { useLocalPref } from '#hooks/useLocalPref';
@@ -82,7 +89,26 @@ export function BudgetPage() {
   const budgetType = isBudgetType(budgetTypePref) ? budgetTypePref : 'envelope';
   const spreadsheet = useSpreadsheet();
 
-  const currMonth = monthUtils.currentMonth();
+  const isPayPeriodsEnabled = useFeatureFlag('payPeriodsEnabled');
+  const [showPayPeriods] = useSyncedPref('showPayPeriods');
+  const [payPeriodFrequency] = useSyncedPref('payPeriodFrequency');
+  const [payPeriodStartDate] = useSyncedPref('payPeriodStartDate');
+  const payPeriodConfig = useMemo(
+    () => ({
+      enabled: isPayPeriodsEnabled && showPayPeriods === 'true',
+      payFrequency:
+        (payPeriodFrequency as 'weekly' | 'biweekly' | 'monthly') ?? 'monthly',
+      startDate: payPeriodStartDate ?? '',
+    }),
+    [
+      isPayPeriodsEnabled,
+      showPayPeriods,
+      payPeriodFrequency,
+      payPeriodStartDate,
+    ],
+  );
+
+  const currMonth = monthUtils.currentMonth(payPeriodConfig);
   const [startMonth = currMonth, setStartMonthPref] =
     useLocalPref('budget.startMonth');
   const [monthBounds, setMonthBounds] = useState({
@@ -290,18 +316,18 @@ export function BudgetPage() {
   );
 
   const onPrevMonth = useCallback(async () => {
-    const month = monthUtils.subMonths(startMonth, 1);
+    const month = monthUtils.subMonths(startMonth, 1, payPeriodConfig);
     await prewarmMonth(budgetType, spreadsheet, month);
     setStartMonthPref(month);
     setInitialized(true);
-  }, [budgetType, setStartMonthPref, spreadsheet, startMonth]);
+  }, [budgetType, payPeriodConfig, setStartMonthPref, spreadsheet, startMonth]);
 
   const onNextMonth = useCallback(async () => {
-    const month = monthUtils.addMonths(startMonth, 1);
+    const month = monthUtils.addMonths(startMonth, 1, payPeriodConfig);
     await prewarmMonth(budgetType, spreadsheet, month);
     setStartMonthPref(month);
     setInitialized(true);
-  }, [budgetType, setStartMonthPref, spreadsheet, startMonth]);
+  }, [budgetType, payPeriodConfig, setStartMonthPref, spreadsheet, startMonth]);
 
   const onCurrentMonth = useCallback(async () => {
     await prewarmMonth(budgetType, spreadsheet, currMonth);
@@ -467,14 +493,17 @@ export function BudgetPage() {
             name: 'notes',
             options: {
               id: `budget-${month}`,
-              name: monthUtils.format(month, "MMMM ''yy", locale),
+              name:
+                isPayPeriod(month) && payPeriodConfig.enabled
+                  ? getPayPeriodLabel(month, payPeriodConfig, 'summary', locale)
+                  : monthUtils.format(month, "MMMM ''yy", locale),
               onSave: onSaveNotes,
             },
           },
         }),
       );
     },
-    [dispatch, onSaveNotes, locale],
+    [dispatch, onSaveNotes, locale, payPeriodConfig],
   );
 
   const onSwitchBudgetFile = useCallback(() => {
@@ -536,79 +565,89 @@ export function BudgetPage() {
   }
 
   return (
-    <Page
-      padding={0}
-      header={
-        <MobilePageHeader
-          title={
-            <MonthSelector
-              month={startMonth}
-              monthBounds={monthBounds}
-              onOpenMonthMenu={onOpenBudgetMonthMenu}
-              onPrevMonth={onPrevMonth}
-              onNextMonth={onNextMonth}
-            />
-          }
-          leftContent={
-            <Button
-              variant="bare"
-              style={{ margin: 10 }}
-              onPress={onOpenBudgetPageMenu}
-              aria-label={t('Budget page menu')}
-            >
-              <SvgLogo
-                style={{ color: theme.mobileHeaderText }}
-                width="20"
-                height="20"
+    <PayPeriodProvider
+      config={payPeriodConfig.enabled ? payPeriodConfig : undefined}
+    >
+      <Page
+        padding={0}
+        header={
+          <MobilePageHeader
+            title={
+              <MonthSelector
+                month={startMonth}
+                monthBounds={monthBounds}
+                payPeriodConfig={
+                  payPeriodConfig.enabled ? payPeriodConfig : undefined
+                }
+                onOpenMonthMenu={onOpenBudgetMonthMenu}
+                onPrevMonth={onPrevMonth}
+                onNextMonth={onNextMonth}
               />
-              <SvgCheveronRight
-                style={{ flexShrink: 0, color: theme.mobileHeaderTextSubdued }}
-                width="14"
-                height="14"
-              />
-            </Button>
-          }
-          rightContent={
-            !monthUtils.isCurrentMonth(startMonth) && (
+            }
+            leftContent={
               <Button
                 variant="bare"
-                onPress={onCurrentMonth}
-                aria-label={t('Today')}
                 style={{ margin: 10 }}
+                onPress={onOpenBudgetPageMenu}
+                aria-label={t('Budget page menu')}
               >
-                <SvgCalendar width={20} height={20} />
+                <SvgLogo
+                  style={{ color: theme.mobileHeaderText }}
+                  width="20"
+                  height="20"
+                />
+                <SvgCheveronRight
+                  style={{
+                    flexShrink: 0,
+                    color: theme.mobileHeaderTextSubdued,
+                  }}
+                  width="14"
+                  height="14"
+                />
               </Button>
-            )
-          }
-        />
-      }
-    >
-      <SheetNameProvider name={monthUtils.sheetForMonth(startMonth)}>
-        <SyncRefresh
-          onSync={async () => {
-            void dispatch(sync());
-          }}
-        >
-          {({ onRefresh }) => (
-            <>
-              <Banners month={startMonth} onBudgetAction={onBudgetAction} />
-              <BudgetTable
-                // This key forces the whole table rerender when the number
-                // format changes
-                key={`${numberFormat}${hideFraction}`}
-                categoryGroups={categoryGroups}
-                month={startMonth}
-                onShowBudgetSummary={onShowBudgetSummary}
-                onBudgetAction={onBudgetAction}
-                onRefresh={onRefresh}
-                onEditCategoryGroup={onOpenCategoryGroupMenuModal}
-                onEditCategory={onOpenCategoryMenuModal}
-              />
-            </>
-          )}
-        </SyncRefresh>
-      </SheetNameProvider>
-    </Page>
+            }
+            rightContent={
+              startMonth !== monthUtils.currentMonth(payPeriodConfig) && (
+                <Button
+                  variant="bare"
+                  onPress={onCurrentMonth}
+                  aria-label={t('Today')}
+                  style={{ margin: 10 }}
+                >
+                  <SvgCalendar width={20} height={20} />
+                </Button>
+              )
+            }
+          />
+        }
+      >
+        <SheetNameProvider name={monthUtils.sheetForMonth(startMonth)}>
+          <SyncRefresh
+            onSync={async () => {
+              void dispatch(sync());
+            }}
+          >
+            {({ onRefresh }) => (
+              <>
+                <Banners month={startMonth} onBudgetAction={onBudgetAction} />
+                <BudgetTable
+                  // This key forces the whole table rerender when the number
+                  // format changes
+                  key={`${numberFormat}${hideFraction}`}
+                  categoryGroups={categoryGroups}
+                  month={startMonth}
+                  onShowBudgetSummary={onShowBudgetSummary}
+                  onBudgetAction={onBudgetAction}
+                  onRefresh={onRefresh}
+                  onEditCategoryGroup={onOpenCategoryGroupMenuModal}
+                  onEditCategory={onOpenCategoryMenuModal}
+                />
+              </>
+            )}
+          </SyncRefresh>
+        </SheetNameProvider>
+      </Page>
+    </PayPeriodProvider>
   );
 }
 
@@ -962,14 +1001,56 @@ function OverspendingBanner({ month, onBudgetAction, budgetType, ...props }) {
 function MonthSelector({
   month,
   monthBounds,
+  payPeriodConfig,
   onOpenMonthMenu,
   onPrevMonth,
   onNextMonth,
+}: {
+  month: string;
+  monthBounds: { start: string; end: string };
+  payPeriodConfig?: PayPeriodConfig;
+  onOpenMonthMenu?: (month: string) => void;
+  onPrevMonth: () => void;
+  onNextMonth: () => void;
 }) {
   const locale = useLocale();
   const { t } = useTranslation();
-  const prevEnabled = month > monthBounds.start;
-  const nextEnabled = month < monthUtils.subMonths(monthBounds.end, 1);
+
+  let prevEnabled: boolean;
+  let nextEnabled: boolean;
+  if (payPeriodConfig?.enabled) {
+    const prevPeriodId = monthUtils.prevMonth(month, payPeriodConfig);
+    const prevPeriodStart = monthUtils.bounds(
+      prevPeriodId,
+      payPeriodConfig,
+    ).start;
+    const calendarBoundsStart = monthUtils.bounds(
+      monthBounds.start,
+      payPeriodConfig,
+    ).start;
+    prevEnabled = prevPeriodStart >= calendarBoundsStart;
+
+    const nextPeriodId = monthUtils.nextMonth(month, payPeriodConfig);
+    const nextPeriodStart = monthUtils.bounds(
+      nextPeriodId,
+      payPeriodConfig,
+    ).start;
+    const calendarBoundsEnd = monthUtils.bounds(
+      monthBounds.end,
+      payPeriodConfig,
+    ).end;
+    nextEnabled = nextPeriodStart <= calendarBoundsEnd;
+  } else {
+    prevEnabled = month > monthBounds.start;
+    nextEnabled =
+      !isPayPeriod(monthBounds.end) &&
+      month < monthUtils.subMonths(monthBounds.end, 1);
+  }
+
+  const periodLabel =
+    isPayPeriod(month) && payPeriodConfig?.enabled
+      ? getPayPeriodLabel(month, payPeriodConfig, 'short', locale)
+      : monthUtils.format(month, "MMMM ''yy", locale);
 
   const arrowButtonStyle = {
     padding: 10,
@@ -1006,9 +1087,7 @@ function MonthSelector({
         }}
         data-month={month}
       >
-        <Text style={styles.underlinedText}>
-          {monthUtils.format(month, "MMMM ''yy", locale)}
-        </Text>
+        <Text style={styles.underlinedText}>{periodLabel}</Text>
       </Button>
       <Button
         aria-label={t('Next month')}

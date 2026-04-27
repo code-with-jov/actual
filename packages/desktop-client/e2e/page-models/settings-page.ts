@@ -42,6 +42,8 @@ export class SettingsPage {
   }
 
   async enableExperimentalFeature(featureName: string) {
+    await this.settings.waitFor({ state: 'visible' });
+
     if (await this.advancedSettingsButton.isVisible()) {
       await this.advancedSettingsButton.click();
     }

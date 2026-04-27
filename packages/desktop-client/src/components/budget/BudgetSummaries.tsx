@@ -15,11 +15,13 @@ import { css } from '@emotion/css';
 import { useResizeObserver } from '#hooks/useResizeObserver';
 
 import { MonthsContext } from './MonthsContext';
+import { usePayPeriodConfig } from './PayPeriodContext';
 
 import { useBudgetComponents } from '.';
 
 export function BudgetSummaries() {
   const { months } = useContext(MonthsContext);
+  const payPeriodConfig = usePayPeriodConfig();
   const [firstMonth] = months;
 
   const [widthState, setWidthState] = useState(0);
@@ -40,10 +42,10 @@ export function BudgetSummaries() {
   const prevMonth0 = useRef(firstMonth);
   const allMonths = useMemo(() => {
     const all = [...months];
-    all.unshift(subMonths(firstMonth, 1));
-    all.push(addMonths(months[months.length - 1], 1));
+    all.unshift(subMonths(firstMonth, 1, payPeriodConfig));
+    all.push(addMonths(months[months.length - 1], 1, payPeriodConfig));
     return all;
-  }, [months, firstMonth]);
+  }, [months, firstMonth, payPeriodConfig]);
   const monthWidth = widthState / months.length;
 
   useLayoutEffect(() => {
